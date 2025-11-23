@@ -90,10 +90,13 @@ public class NotesRepositoryImpl implements NotesRepository {
                 
                 String queryParam = String.join(",", queries);
                 String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
+                boolean hasQuery = false;
                 if (!queryParam.isEmpty()) {
                     url += "?queries=[" + queryParam + "]";
+                    hasQuery = true;
                 }
-                url += "&project=" + PROJECT_ID;
+                // Add project parameter - use ? if no query params, & if query params exist
+                url += (hasQuery ? "&" : "?") + "project=" + PROJECT_ID;
                 
                 Log.d(TAG, "Appwrite Database URL: " + url);
                 
