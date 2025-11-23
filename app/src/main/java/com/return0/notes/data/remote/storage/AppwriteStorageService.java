@@ -4,7 +4,7 @@ import android.content.Context;
 import android.util.Log;
 import io.appwrite.Client;
 import io.appwrite.services.Storage;
-import io.appwrite.InputFile;
+import io.appwrite.ID;
 import io.appwrite.exceptions.AppwriteException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -74,13 +74,10 @@ public class AppwriteStorageService implements StorageService {
             
             CompletableFuture.runAsync(() -> {
                 try {
-                    FileInputStream fileInputStream = new FileInputStream(file);
-                    InputFile inputFile = InputFile.fromFile(fileInputStream, filename);
-                    
                     io.appwrite.models.File uploadedFile = storage.createFile(
                         NOTES_BUCKET_ID,
-                        "unique()",
-                        inputFile
+                        ID.unique(),
+                        file
                     );
                     
                     String fileId = uploadedFile.getId();
@@ -137,13 +134,10 @@ public class AppwriteStorageService implements StorageService {
             
             CompletableFuture.runAsync(() -> {
                 try {
-                    FileInputStream fileInputStream = new FileInputStream(file);
-                    InputFile inputFile = InputFile.fromFile(fileInputStream, filename);
-                    
                     io.appwrite.models.File uploadedFile = storage.createFile(
                         THUMBNAILS_BUCKET_ID,
-                        "unique()",
-                        inputFile
+                        ID.unique(),
+                        file
                     );
                     
                     String fileId = uploadedFile.getId();
