@@ -291,8 +291,8 @@ public class NotesRepositoryImpl implements NotesRepository {
                 Log.d(TAG, "Creating document in Appwrite Database: " + url);
                 
                 // Build data object
+                // Note: Appwrite automatically provides "$id" as the document ID
                 JsonObject data = new JsonObject();
-                data.addProperty("notesid", documentId);
                 data.addProperty("title", title);
                 data.addProperty("subject", subject != null ? subject : "");
                 data.addProperty("semester", semester != null ? semester : "");
@@ -340,8 +340,9 @@ public class NotesRepositoryImpl implements NotesRepository {
                     // Parse response
                     JsonObject responseObj = JsonParser.parseString(jsonResponse).getAsJsonObject();
                     NoteDto noteDto = new NoteDto();
-                    noteDto.setId(responseObj.has("$id") ? responseObj.get("$id").getAsString() : documentId);
-                    noteDto.setNotesid(responseObj.has("notesid") ? responseObj.get("notesid").getAsString() : documentId);
+                    String docId = responseObj.has("$id") ? responseObj.get("$id").getAsString() : documentId;
+                    noteDto.setId(docId);
+                    noteDto.setNotesid(docId); // Use document ID as notesid
                     noteDto.setTitle(responseObj.has("title") ? responseObj.get("title").getAsString() : title);
                     noteDto.setSubject(responseObj.has("subject") ? responseObj.get("subject").getAsString() : (subject != null ? subject : ""));
                     noteDto.setSemester(responseObj.has("semester") ? responseObj.get("semester").getAsString() : (semester != null ? semester : ""));
