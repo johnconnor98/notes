@@ -66,27 +66,27 @@ public class AppwriteDatabaseService implements DatabaseService {
                 try {
                     Log.d(TAG, "Generating queries using Appwrite Query class...");
                     // Use Appwrite SDK Query class to generate properly formatted query strings
-                    // This ensures the format matches exactly what Appwrite expects
+                    // Query.equal() for strings: Query.equal("field", "value") - direct string value
                     if (subject != null && !subject.isEmpty()) {
-                        String query = io.appwrite.Query.equal("subject", java.util.Collections.singletonList(subject));
+                        String query = io.appwrite.Query.equal("subject", subject);
                         queryStrings.add(query);
                         Log.d(TAG, "  ✓ Subject query generated: " + query);
                         Log.d(TAG, "    Query length: " + query.length() + " chars");
                     }
                     if (semester != null && !semester.isEmpty()) {
-                        String query = io.appwrite.Query.equal("semester", java.util.Collections.singletonList(semester));
+                        String query = io.appwrite.Query.equal("semester", semester);
                         queryStrings.add(query);
                         Log.d(TAG, "  ✓ Semester query generated: " + query);
                         Log.d(TAG, "    Query length: " + query.length() + " chars");
                     }
                     if (branch != null && !branch.isEmpty()) {
-                        String query = io.appwrite.Query.equal("branch", java.util.Collections.singletonList(branch));
+                        String query = io.appwrite.Query.equal("branch", branch);
                         queryStrings.add(query);
                         Log.d(TAG, "  ✓ Branch query generated: " + query);
                         Log.d(TAG, "    Query length: " + query.length() + " chars");
                     }
                     if (college != null && !college.isEmpty()) {
-                        String query = io.appwrite.Query.equal("college", java.util.Collections.singletonList(college));
+                        String query = io.appwrite.Query.equal("college", college);
                         queryStrings.add(query);
                         Log.d(TAG, "  ✓ College query generated: " + query);
                         Log.d(TAG, "    Query length: " + query.length() + " chars");
