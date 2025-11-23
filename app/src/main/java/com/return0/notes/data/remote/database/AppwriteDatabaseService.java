@@ -70,21 +70,22 @@ public class AppwriteDatabaseService implements DatabaseService {
                     queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                // Build query parameters - Appwrite expects queries as array notation
+                // Build query parameters - Appwrite expects queries as a JSON array
+                // Format: queries=["equal(\"field\",\"value\")"]
                 if (!queryStrings.isEmpty()) {
-                    StringBuilder queryParams = new StringBuilder();
-                    for (int i = 0; i < queryStrings.size(); i++) {
-                        if (i > 0) queryParams.append("&");
-                        try {
-                            String encodedQuery = URLEncoder.encode(queryStrings.get(i), "UTF-8");
-                            queryParams.append("queries[]=").append(encodedQuery);
-                        } catch (java.io.UnsupportedEncodingException e) {
-                            Log.e(TAG, "Error encoding query", e);
-                            queryParams.append("queries[]=").append(queryStrings.get(i));
-                        }
+                    // Use Gson to create a proper JSON array
+                    String queriesJson = gson.toJson(queryStrings);
+                    Log.d(TAG, "Queries JSON: " + queriesJson);
+                    
+                    try {
+                        // URL encode the JSON array
+                        String encodedQueries = URLEncoder.encode(queriesJson, "UTF-8");
+                        url += "&queries=" + encodedQueries;
+                        Log.d(TAG, "Encoded queries: " + encodedQueries);
+                    } catch (java.io.UnsupportedEncodingException e) {
+                        Log.e(TAG, "Error encoding queries", e);
+                        url += "&queries=" + queriesJson;
                     }
-                    url += "&" + queryParams.toString();
-                    Log.d(TAG, "Query parameters: " + queryParams.toString());
                 }
                 
                 HttpURLConnection connection = createConnection(url, "GET");
