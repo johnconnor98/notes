@@ -139,9 +139,20 @@ public class NotesRepositoryImpl implements NotesRepository {
                             noteDto.setSemester(doc.has("semester") ? doc.get("semester").getAsString() : "");
                             noteDto.setBranch(doc.has("branch") ? doc.get("branch").getAsString() : "");
                             noteDto.setCollege(doc.has("college") ? doc.get("college").getAsString() : "");
-                            noteDto.setFilePath(doc.has("filePath") ? doc.get("filePath").getAsString() : "");
-                            noteDto.setThumbnailPath(doc.has("thumbnailPath") ? doc.get("thumbnailPath").getAsString() : "");
-                            noteDto.setThumbnailUrl(doc.has("thumbnailPath") ? doc.get("thumbnailPath").getAsString() : "");
+                            // Handle null values for filePath and thumbnailPath
+                            if (doc.has("filePath") && !doc.get("filePath").isJsonNull()) {
+                                noteDto.setFilePath(doc.get("filePath").getAsString());
+                            } else {
+                                noteDto.setFilePath("");
+                            }
+                            if (doc.has("thumbnailPath") && !doc.get("thumbnailPath").isJsonNull()) {
+                                String thumbPath = doc.get("thumbnailPath").getAsString();
+                                noteDto.setThumbnailPath(thumbPath);
+                                noteDto.setThumbnailUrl(thumbPath);
+                            } else {
+                                noteDto.setThumbnailPath("");
+                                noteDto.setThumbnailUrl("");
+                            }
                             noteDtos.add(noteDto);
                         }
                     }
