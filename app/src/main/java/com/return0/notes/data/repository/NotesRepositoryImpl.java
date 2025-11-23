@@ -69,8 +69,19 @@ public class NotesRepositoryImpl implements NotesRepository {
 
     @Override
     public void loadNotes(LoadNotesCallback callback) {
-        Log.d(TAG, "=== LOADING ALL NOTES FROM APPWRITE DATABASE ===");
-        loadNotesFromAppwrite(null, null, null, null, callback);
+        Log.d(TAG, "=== LOADING ALL NOTES ===");
+        databaseService.loadAllNotes(new DatabaseService.DatabaseCallback<List<NoteDto>>() {
+            @Override
+            public void onSuccess(List<NoteDto> noteDtos) {
+                List<Note> notes = NoteMapper.toDomainList(noteDtos);
+                callback.onSuccess(notes);
+            }
+
+            @Override
+            public void onError(String error) {
+                callback.onError(error);
+            }
+        });
     }
 
     @Override
@@ -87,7 +98,19 @@ public class NotesRepositoryImpl implements NotesRepository {
         Log.d(TAG, "Branch: " + (branch != null ? branch : "null"));
         Log.d(TAG, "College: " + (college != null ? college : "null"));
         
-        loadNotesFromAppwrite(subject, semester, branch, college, callback);
+        databaseService.searchNotes(subject, semester, branch, college, 
+            new DatabaseService.DatabaseCallback<List<NoteDto>>() {
+                @Override
+                public void onSuccess(List<NoteDto> noteDtos) {
+                    List<Note> notes = NoteMapper.toDomainList(noteDtos);
+                    callback.onSuccess(notes);
+                }
+
+                @Override
+                public void onError(String error) {
+                    callback.onError(error);
+                }
+            });
     }
     
     
