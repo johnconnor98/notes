@@ -4,7 +4,6 @@ import android.content.Context;
 import android.util.Log;
 import io.appwrite.Client;
 import io.appwrite.services.Storage;
-import io.appwrite.ID;
 import io.appwrite.exceptions.AppwriteException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -73,17 +72,18 @@ public class AppwriteStorageService implements StorageService {
             
             CompletableFuture.runAsync(() -> {
                 try {
+                    String fileId = java.util.UUID.randomUUID().toString();
                     io.appwrite.models.File uploadedFile = storage.createFile(
                         NOTES_BUCKET_ID,
-                        ID.unique(),
+                        fileId,
                         file
                     );
                     
-                    String fileId = uploadedFile.getId();
-                    String downloadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files/" + fileId + "/view?project=" + PROJECT_ID;
-                    String storagePath = NOTES_BUCKET_ID + "/" + fileId;
+                    String uploadedFileId = uploadedFile.getId();
+                    String downloadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
+                    String storagePath = NOTES_BUCKET_ID + "/" + uploadedFileId;
                     
-                    Log.d(TAG, "Upload successful - File ID: " + fileId);
+                    Log.d(TAG, "Upload successful - File ID: " + uploadedFileId);
                     Log.d(TAG, "Download URL: " + downloadUrl);
                     Log.d(TAG, "Storage path: " + storagePath);
                     
@@ -133,17 +133,18 @@ public class AppwriteStorageService implements StorageService {
             
             CompletableFuture.runAsync(() -> {
                 try {
+                    String fileId = java.util.UUID.randomUUID().toString();
                     io.appwrite.models.File uploadedFile = storage.createFile(
                         THUMBNAILS_BUCKET_ID,
-                        ID.unique(),
+                        fileId,
                         file
                     );
                     
-                    String fileId = uploadedFile.getId();
-                    String downloadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files/" + fileId + "/view?project=" + PROJECT_ID;
-                    String storagePath = THUMBNAILS_BUCKET_ID + "/" + fileId;
+                    String uploadedFileId = uploadedFile.getId();
+                    String downloadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
+                    String storagePath = THUMBNAILS_BUCKET_ID + "/" + uploadedFileId;
                     
-                    Log.d(TAG, "Thumbnail upload successful - File ID: " + fileId);
+                    Log.d(TAG, "Thumbnail upload successful - File ID: " + uploadedFileId);
                     Log.d(TAG, "Thumbnail download URL: " + downloadUrl);
                     
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
@@ -184,9 +185,21 @@ public class AppwriteStorageService implements StorageService {
         
         Log.d(TAG, "Downloading from bucket: " + bucketId + ", File ID: " + fileId);
         
+        String downloadUrl = ENDPOINT + "/storage/buckets/" + bucketId + "/files/" + fileId + "/download?project=" + PROJECT_ID;
+        Log.d(TAG, "Download URL: " + downloadUrl);
+        
         CompletableFuture.runAsync(() -> {
             try {
-                InputStream inputStream = storage.getFileDownload(bucketId, fileId);
+                java.net.URL url = new java.net.URL(downloadUrl);
+                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.connect();
+                
+                if (connection.getResponseCode() != java.net.HttpURLConnection.HTTP_OK) {
+                    throw new Exception("HTTP error code: " + connection.getResponseCode());
+                }
+                
+                InputStream inputStream = connection.getInputStream();
                 byte[] buffer = new byte[8192];
                 java.io.ByteArrayOutputStream byteArrayOutputStream = new java.io.ByteArrayOutputStream();
                 int bytesRead;
@@ -196,6 +209,7 @@ public class AppwriteStorageService implements StorageService {
                 byte[] fileBytes = byteArrayOutputStream.toByteArray();
                 inputStream.close();
                 byteArrayOutputStream.close();
+                connection.disconnect();
                 
                 Log.d(TAG, "Download successful - Bytes downloaded: " + fileBytes.length + ", File ID: " + fileId);
                 
@@ -209,15 +223,10 @@ public class AppwriteStorageService implements StorageService {
                 new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                     callback.onSuccess(file.getAbsolutePath());
                 });
-            } catch (AppwriteException e) {
+            } catch (Exception e) {
                 Log.e(TAG, "Download failed - Storage path: " + storagePath + ", Error: " + e.getMessage(), e);
                 new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                     callback.onError("Download failed: " + e.getMessage());
-                });
-            } catch (Exception e) {
-                Log.e(TAG, "Error saving downloaded file: " + localFilename, e);
-                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                    callback.onError("Error saving file: " + e.getMessage());
                 });
             }
         });
