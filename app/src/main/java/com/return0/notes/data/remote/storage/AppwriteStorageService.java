@@ -72,21 +72,45 @@ public class AppwriteStorageService implements StorageService {
 
                         @Override
                         public void resumeWith(Object result) {
-                            if (result instanceof kotlin.Result) {
-                                kotlin.Result<io.appwrite.models.Session> kotlinResult = (kotlin.Result<io.appwrite.models.Session>) result;
-                                if (kotlinResult.isSuccess()) {
+                            try {
+                                if (result instanceof kotlin.Result) {
+                                    kotlin.Result<io.appwrite.models.Session> kotlinResult = (kotlin.Result<io.appwrite.models.Session>) result;
+                                    
+                                    // Check if result is success by trying to get value
+                                    try {
+                                        io.appwrite.models.Session session = kotlinResult.getValue();
+                                        if (session != null) {
+                                            sessionCreated.set(true);
+                                            Log.d(TAG, "Anonymous session created successfully");
+                                            onComplete.run();
+                                            return;
+                                        }
+                                    } catch (Exception e) {
+                                        // Result is a failure
+                                        Throwable exception = e.getCause() != null ? e.getCause() : e;
+                                        Log.e(TAG, "Failed to create anonymous session: " + exception.getMessage(), exception);
+                                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                            // Still try to proceed - session might work anyway
+                                            sessionCreated.set(true);
+                                            onComplete.run();
+                                        });
+                                        return;
+                                    }
+                                } else if (result instanceof io.appwrite.models.Session) {
+                                    // Direct session object
                                     sessionCreated.set(true);
                                     Log.d(TAG, "Anonymous session created successfully");
                                     onComplete.run();
                                 } else {
-                                    Throwable exception = kotlinResult.exceptionOrNull();
-                                    Log.e(TAG, "Failed to create anonymous session: " + (exception != null ? exception.getMessage() : "Unknown error"), exception);
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                                        // Still try to proceed - session might work anyway
-                                        sessionCreated.set(true);
-                                        onComplete.run();
-                                    });
+                                    // Unknown result type
+                                    Log.w(TAG, "Unexpected result type: " + (result != null ? result.getClass().getName() : "null"));
+                                    sessionCreated.set(true);
+                                    onComplete.run();
                                 }
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error processing session result", e);
+                                sessionCreated.set(true);
+                                onComplete.run();
                             }
                         }
                     });
