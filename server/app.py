@@ -20,14 +20,21 @@ if not os.path.exists(THUMBNAIL_FOLDER):
 def init_db():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
+    # Create table matching your schema: id, notesid, title, subject, semester, branch, college
     c.execute('''CREATE TABLE IF NOT EXISTS notes
-                 (id TEXT PRIMARY KEY, title TEXT, filename TEXT, 
-                  upload_date TEXT, file_size INTEGER, subject TEXT,
-                  semester TEXT, branch TEXT, college TEXT, thumbnail TEXT,
-                  file_url TEXT, file_path TEXT, thumbnail_url TEXT)''')
+                 (id TEXT PRIMARY KEY, notesid TEXT, title TEXT, 
+                  subject TEXT, semester TEXT, branch TEXT, college TEXT)''')
     conn.commit()
     
-    # Migrate existing database
+    # Migrate existing database - add missing columns if they don't exist
+    try:
+        c.execute('ALTER TABLE notes ADD COLUMN notesid TEXT')
+    except:
+        pass
+    try:
+        c.execute('ALTER TABLE notes ADD COLUMN subject TEXT')
+    except:
+        pass
     try:
         c.execute('ALTER TABLE notes ADD COLUMN semester TEXT')
     except:
@@ -38,22 +45,6 @@ def init_db():
         pass
     try:
         c.execute('ALTER TABLE notes ADD COLUMN college TEXT')
-    except:
-        pass
-    try:
-        c.execute('ALTER TABLE notes ADD COLUMN thumbnail TEXT')
-    except:
-        pass
-    try:
-        c.execute('ALTER TABLE notes ADD COLUMN file_url TEXT')
-    except:
-        pass
-    try:
-        c.execute('ALTER TABLE notes ADD COLUMN file_path TEXT')
-    except:
-        pass
-    try:
-        c.execute('ALTER TABLE notes ADD COLUMN thumbnail_url TEXT')
     except:
         pass
     
@@ -77,19 +68,13 @@ def get_notes():
     print("ALL DATA IN DATABASE:")
     print("=" * 80)
     for row in all_rows:
-        print(f"ID: {row[0]}")
-        print(f"  Title: {row[1]}")
-        print(f"  Filename: {row[2]}")
-        print(f"  Upload Date: {row[3]}")
-        print(f"  File Size: {row[4]}")
-        print(f"  Subject: {row[5] if len(row) > 5 else 'N/A'}")
-        print(f"  Semester: {row[6] if len(row) > 6 else 'N/A'}")
-        print(f"  Branch: {row[7] if len(row) > 7 else 'N/A'}")
-        print(f"  College: {row[8] if len(row) > 8 else 'N/A'}")
-        print(f"  Thumbnail: {row[9] if len(row) > 9 else 'N/A'}")
-        print(f"  File URL: {row[10] if len(row) > 10 else 'N/A'}")
-        print(f"  File Path: {row[11] if len(row) > 11 else 'N/A'}")
-        print(f"  Thumbnail URL: {row[12] if len(row) > 12 else 'N/A'}")
+        print(f"ID: {row[0] if len(row) > 0 else 'N/A'}")
+        print(f"  NotesID: {row[1] if len(row) > 1 else 'N/A'}")
+        print(f"  Title: {row[2] if len(row) > 2 else 'N/A'}")
+        print(f"  Subject: {row[3] if len(row) > 3 else 'N/A'}")
+        print(f"  Semester: {row[4] if len(row) > 4 else 'N/A'}")
+        print(f"  Branch: {row[5] if len(row) > 5 else 'N/A'}")
+        print(f"  College: {row[6] if len(row) > 6 else 'N/A'}")
         print("-" * 80)
     print(f"Total records: {len(all_rows)}")
     print("=" * 80)
@@ -110,7 +95,7 @@ def get_notes():
         query += ' AND college LIKE ?'
         params.append(f'%{college}%')
     
-    query += ' ORDER BY upload_date DESC'
+    query += ' ORDER BY id DESC'
     
     print(f"Search query: {query}")
     print(f"Search params: {params}")
@@ -119,19 +104,13 @@ def get_notes():
     notes = []
     for row in c.fetchall():
         notes.append({
-            'id': row[0],
-            'title': row[1],
-            'filename': row[2],
-            'upload_date': row[3],
-            'file_size': row[4],
-            'subject': row[5] if len(row) > 5 else '',
-            'semester': row[6] if len(row) > 6 else '',
-            'branch': row[7] if len(row) > 7 else '',
-            'college': row[8] if len(row) > 8 else '',
-            'thumbnail': row[9] if len(row) > 9 else '',
-            'file_url': row[10] if len(row) > 10 else '',
-            'file_path': row[11] if len(row) > 11 else '',
-            'thumbnail_url': row[12] if len(row) > 12 else ''
+            'id': row[0] if len(row) > 0 else '',
+            'notesid': row[1] if len(row) > 1 else '',
+            'title': row[2] if len(row) > 2 else '',
+            'subject': row[3] if len(row) > 3 else '',
+            'semester': row[4] if len(row) > 4 else '',
+            'branch': row[5] if len(row) > 5 else '',
+            'college': row[6] if len(row) > 6 else ''
         })
     
     print(f"Returning {len(notes)} notes after filtering")
@@ -156,36 +135,34 @@ def upload_note():
             return jsonify({'error': 'Title is required'}), 400
         
         note_id = str(uuid.uuid4())
-        filename = file_path.split('/')[-1] if file_path else f"{note_id}_file"
-        upload_date = datetime.now().isoformat()
+        notesid = note_id  # Using note_id as notesid
         
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
         c.execute('''INSERT INTO notes 
-                     (id, title, filename, upload_date, file_size, subject, semester, branch, college, 
-                      thumbnail, file_url, file_path, thumbnail_url)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                  (note_id, title, filename, upload_date, 0, subject, semester, branch, college, 
-                   '', file_url, file_path, thumbnail_url))
+                     (id, notesid, title, subject, semester, branch, college)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)''',
+                  (note_id, notesid, title, subject, semester, branch, college))
         conn.commit()
         conn.close()
         
-        print(f"✓ Saved metadata to database: ID={note_id}, Title={title}, Subject={subject}, File Path={file_path}")
+        print(f"✓ Saved metadata to database:")
+        print(f"  ID: {note_id}")
+        print(f"  NotesID: {notesid}")
+        print(f"  Title: {title}")
+        print(f"  Subject: {subject}")
+        print(f"  Semester: {semester}")
+        print(f"  Branch: {branch}")
+        print(f"  College: {college}")
         
         return jsonify({
             'id': note_id,
+            'notesid': notesid,
             'title': title,
-            'filename': filename,
-            'upload_date': upload_date,
-            'file_size': 0,
             'subject': subject,
             'semester': semester,
             'branch': branch,
-            'college': college,
-            'thumbnail': '',
-            'file_url': file_url,
-            'file_path': file_path,
-            'thumbnail_url': thumbnail_url
+            'college': college
         }), 201
     
     # Handle file upload (legacy method)
@@ -203,44 +180,37 @@ def upload_note():
         return jsonify({'error': 'No file selected'}), 400
     
     note_id = str(uuid.uuid4())
+    notesid = note_id  # Using note_id as notesid
     filename = f"{note_id}_{file.filename}"
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
     
-    file_size = os.path.getsize(filepath)
-    upload_date = datetime.now().isoformat()
-    
-    thumbnail = None
-    if 'thumbnail' in request.files:
-        thumb_file = request.files['thumbnail']
-        if thumb_file.filename:
-            thumb_filename = f"{note_id}_thumb_{thumb_file.filename}"
-            thumb_path = os.path.join(THUMBNAIL_FOLDER, thumb_filename)
-            thumb_file.save(thumb_path)
-            thumbnail = thumb_filename
-    
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     c.execute('''INSERT INTO notes 
-                 (id, title, filename, upload_date, file_size, subject, semester, branch, college, thumbnail)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-              (note_id, title, filename, upload_date, file_size, subject, semester, branch, college, thumbnail))
+                 (id, notesid, title, subject, semester, branch, college)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)''',
+              (note_id, notesid, title, subject, semester, branch, college))
     conn.commit()
     conn.close()
     
-    print(f"✓ Saved file upload to database: ID={note_id}, Title={title}, Subject={subject}")
+    print(f"✓ Saved file upload to database:")
+    print(f"  ID: {note_id}")
+    print(f"  NotesID: {notesid}")
+    print(f"  Title: {title}")
+    print(f"  Subject: {subject}")
+    print(f"  Semester: {semester}")
+    print(f"  Branch: {branch}")
+    print(f"  College: {college}")
     
     return jsonify({
         'id': note_id,
+        'notesid': notesid,
         'title': title,
-        'filename': filename,
-        'upload_date': upload_date,
-        'file_size': file_size,
         'subject': subject,
         'semester': semester,
         'branch': branch,
-        'college': college,
-        'thumbnail': thumbnail
+        'college': college
     }), 201
 
 @app.route('/api/notes/<note_id>/download', methods=['GET'])

@@ -6,6 +6,9 @@ public class NoteDto {
     @SerializedName("id")
     private String id;
 
+    @SerializedName("notesid")
+    private String notesid;
+
     @SerializedName("title")
     private String title;
 
@@ -48,6 +51,14 @@ public class NoteDto {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getNotesid() {
+        return notesid;
+    }
+
+    public void setNotesid(String notesid) {
+        this.notesid = notesid;
     }
 
     public String getTitle() {

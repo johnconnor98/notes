@@ -158,18 +158,12 @@ public class NotesRepositoryImpl implements NotesRepository {
             NoteDto note = notes.get(i);
             Log.d(TAG, "Record #" + (i + 1) + ":");
             Log.d(TAG, "  ID: " + (note.getId() != null ? note.getId() : "NULL"));
+            Log.d(TAG, "  NotesID: " + (note.getNotesid() != null ? note.getNotesid() : "NULL"));
             Log.d(TAG, "  Title: " + (note.getTitle() != null ? note.getTitle() : "NULL"));
-            Log.d(TAG, "  Filename: " + (note.getFilename() != null ? note.getFilename() : "NULL"));
-            Log.d(TAG, "  Upload Date: " + (note.getUploadDate() != null ? note.getUploadDate() : "NULL"));
-            Log.d(TAG, "  File Size: " + note.getFileSize());
             Log.d(TAG, "  Subject: " + (note.getSubject() != null && !note.getSubject().isEmpty() ? note.getSubject() : "NULL/EMPTY"));
             Log.d(TAG, "  Semester: " + (note.getSemester() != null && !note.getSemester().isEmpty() ? note.getSemester() : "NULL/EMPTY"));
             Log.d(TAG, "  Branch: " + (note.getBranch() != null && !note.getBranch().isEmpty() ? note.getBranch() : "NULL/EMPTY"));
             Log.d(TAG, "  College: " + (note.getCollege() != null && !note.getCollege().isEmpty() ? note.getCollege() : "NULL/EMPTY"));
-            Log.d(TAG, "  Thumbnail: " + (note.getThumbnail() != null ? note.getThumbnail() : "NULL"));
-            Log.d(TAG, "  File URL: " + (note.getFileUrl() != null && !note.getFileUrl().isEmpty() ? note.getFileUrl() : "NULL/EMPTY"));
-            Log.d(TAG, "  File Path: " + (note.getFilePath() != null && !note.getFilePath().isEmpty() ? note.getFilePath() : "NULL/EMPTY"));
-            Log.d(TAG, "  Thumbnail URL: " + (note.getThumbnailUrl() != null && !note.getThumbnailUrl().isEmpty() ? note.getThumbnailUrl() : "NULL/EMPTY"));
             Log.d(TAG, "----------------------------------------------------------------------------------");
         }
         
@@ -239,8 +233,18 @@ public class NotesRepositoryImpl implements NotesRepository {
     private void sendMetadataToBackend(String title, String subject, String semester, String branch, 
                                       String college, String fileUrl, String filePath, String thumbUrl, 
                                       String thumbPath, String originalFilename, UploadCallback callback) {
+        Log.d(TAG, "=== SENDING DATA TO DATABASE ===");
+        Log.d(TAG, "Title: " + title);
+        Log.d(TAG, "Subject: " + (subject != null ? subject : "NULL"));
+        Log.d(TAG, "Semester: " + (semester != null ? semester : "NULL"));
+        Log.d(TAG, "Branch: " + (branch != null ? branch : "NULL"));
+        Log.d(TAG, "College: " + (college != null ? college : "NULL"));
+        Log.d(TAG, "File URL: " + fileUrl);
+        Log.d(TAG, "File Path: " + filePath);
+        Log.d(TAG, "=================================");
+        
         RequestBody titleBody = RequestBody.create(MediaType.parse("text/plain"), title);
-        RequestBody subjectBody = RequestBody.create(MediaType.parse("text/plain"), subject);
+        RequestBody subjectBody = RequestBody.create(MediaType.parse("text/plain"), subject != null ? subject : "");
         RequestBody semesterBody = RequestBody.create(MediaType.parse("text/plain"), semester != null ? semester : "");
         RequestBody branchBody = RequestBody.create(MediaType.parse("text/plain"), branch != null ? branch : "");
         RequestBody collegeBody = RequestBody.create(MediaType.parse("text/plain"), college != null ? college : "");
@@ -252,10 +256,34 @@ public class NotesRepositoryImpl implements NotesRepository {
                 fileUrlBody, filePathBody, thumbUrlBody).enqueue(new Callback<NoteDto>() {
             @Override
             public void onResponse(Call<NoteDto> call, Response<NoteDto> response) {
+                Log.d(TAG, "=== DATABASE SAVE RESPONSE ===");
+                Log.d(TAG, "Response code: " + response.code());
+                Log.d(TAG, "Response successful: " + response.isSuccessful());
+                
                 if (response.isSuccessful() && response.body() != null) {
-                    Note note = NoteMapper.toDomain(response.body());
+                    NoteDto noteDto = response.body();
+                    Log.d(TAG, "Saved to database:");
+                    Log.d(TAG, "  ID: " + noteDto.getId());
+                    Log.d(TAG, "  NotesID: " + noteDto.getNotesid());
+                    Log.d(TAG, "  Title: " + noteDto.getTitle());
+                    Log.d(TAG, "  Subject: " + noteDto.getSubject());
+                    Log.d(TAG, "  Semester: " + noteDto.getSemester());
+                    Log.d(TAG, "  Branch: " + noteDto.getBranch());
+                    Log.d(TAG, "  College: " + noteDto.getCollege());
+                    Log.d(TAG, "=================================");
+                    
+                    Note note = NoteMapper.toDomain(noteDto);
                     callback.onSuccess(note);
                 } else {
+                    Log.e(TAG, "Database save failed: " + response.message());
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Error body: " + errorBody);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error reading error body: " + e.getMessage());
+                        }
+                    }
                     callback.onError("Upload failed: " + response.message());
                 }
             }
