@@ -216,33 +216,34 @@ public class AppwriteStorageService implements StorageService {
                         }
                     
                     OutputStream outputStream = connection.getOutputStream();
-                    java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.OutputStreamWriter(outputStream, "UTF-8"), true);
+                    java.io.DataOutputStream dataOutputStream = new java.io.DataOutputStream(outputStream);
                     
-                    writer.append("--" + boundary).append("\r\n");
-                    writer.append("Content-Disposition: form-data; name=\"fileId\"").append("\r\n");
-                    writer.append("\r\n");
-                    writer.append(fileId).append("\r\n");
-                    writer.flush();
+                    // Write fileId field
+                    dataOutputStream.writeBytes("--" + boundary + "\r\n");
+                    dataOutputStream.writeBytes("Content-Disposition: form-data; name=\"fileId\"\r\n");
+                    dataOutputStream.writeBytes("\r\n");
+                    dataOutputStream.writeBytes(fileId + "\r\n");
                     
-                    writer.append("--" + boundary).append("\r\n");
-                    writer.append("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"").append("\r\n");
-                    writer.append("Content-Type: application/octet-stream").append("\r\n");
-                    writer.append("\r\n");
-                    writer.flush();
+                    // Write file field
+                    dataOutputStream.writeBytes("--" + boundary + "\r\n");
+                    dataOutputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n");
+                    dataOutputStream.writeBytes("Content-Type: application/octet-stream\r\n");
+                    dataOutputStream.writeBytes("\r\n");
                     
+                    // Write file data
                     FileInputStream fileInputStream = new FileInputStream(file);
                     byte[] buffer = new byte[8192];
                     int bytesRead;
                     while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                        outputStream.write(buffer, 0, bytesRead);
+                        dataOutputStream.write(buffer, 0, bytesRead);
                     }
-                    outputStream.flush();
                     fileInputStream.close();
                     
-                    writer.append("\r\n");
-                    writer.append("--" + boundary + "--").append("\r\n");
-                    writer.flush();
-                    writer.close();
+                    // Write closing boundary
+                    dataOutputStream.writeBytes("\r\n");
+                    dataOutputStream.writeBytes("--" + boundary + "--\r\n");
+                    dataOutputStream.flush();
+                    dataOutputStream.close();
                     
                     int responseCode = connection.getResponseCode();
                     if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
@@ -363,33 +364,34 @@ public class AppwriteStorageService implements StorageService {
                         }
                     
                     OutputStream outputStream = connection.getOutputStream();
-                    java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.OutputStreamWriter(outputStream, "UTF-8"), true);
+                    java.io.DataOutputStream dataOutputStream = new java.io.DataOutputStream(outputStream);
                     
-                    writer.append("--" + boundary).append("\r\n");
-                    writer.append("Content-Disposition: form-data; name=\"fileId\"").append("\r\n");
-                    writer.append("\r\n");
-                    writer.append(fileId).append("\r\n");
-                    writer.flush();
+                    // Write fileId field
+                    dataOutputStream.writeBytes("--" + boundary + "\r\n");
+                    dataOutputStream.writeBytes("Content-Disposition: form-data; name=\"fileId\"\r\n");
+                    dataOutputStream.writeBytes("\r\n");
+                    dataOutputStream.writeBytes(fileId + "\r\n");
                     
-                    writer.append("--" + boundary).append("\r\n");
-                    writer.append("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"").append("\r\n");
-                    writer.append("Content-Type: application/octet-stream").append("\r\n");
-                    writer.append("\r\n");
-                    writer.flush();
+                    // Write file field
+                    dataOutputStream.writeBytes("--" + boundary + "\r\n");
+                    dataOutputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n");
+                    dataOutputStream.writeBytes("Content-Type: application/octet-stream\r\n");
+                    dataOutputStream.writeBytes("\r\n");
                     
+                    // Write file data
                     FileInputStream fileInputStream = new FileInputStream(file);
                     byte[] buffer = new byte[8192];
                     int bytesRead;
                     while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-                        outputStream.write(buffer, 0, bytesRead);
+                        dataOutputStream.write(buffer, 0, bytesRead);
                     }
-                    outputStream.flush();
                     fileInputStream.close();
                     
-                    writer.append("\r\n");
-                    writer.append("--" + boundary + "--").append("\r\n");
-                    writer.flush();
-                    writer.close();
+                    // Write closing boundary
+                    dataOutputStream.writeBytes("\r\n");
+                    dataOutputStream.writeBytes("--" + boundary + "--\r\n");
+                    dataOutputStream.flush();
+                    dataOutputStream.close();
                     
                     int responseCode = connection.getResponseCode();
                     if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
