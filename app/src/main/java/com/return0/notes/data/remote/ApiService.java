@@ -35,7 +35,7 @@ public interface ApiService {
 
     @Multipart
     @POST("api/notes")
-    Call<NoteDto> uploadNoteWithFirebase(
+    Call<NoteDto> uploadNoteMetadata(
             @Part("title") okhttp3.RequestBody title,
             @Part("subject") okhttp3.RequestBody subject,
             @Part("semester") okhttp3.RequestBody semester,

@@ -5,7 +5,8 @@ import android.os.Environment;
 import com.return0.notes.data.mapper.NoteMapper;
 import com.return0.notes.data.remote.ApiService;
 import com.return0.notes.data.remote.ApiClient;
-import com.return0.notes.data.remote.FirebaseStorageService;
+import com.return0.notes.data.remote.storage.StorageService;
+import com.return0.notes.data.remote.storage.AppwriteStorageService;
 import com.return0.notes.data.remote.dto.NoteDto;
 import com.return0.notes.domain.model.Note;
 import com.return0.notes.domain.model.SearchFilters;
@@ -26,12 +27,12 @@ import java.util.Map;
 public class NotesRepositoryImpl implements NotesRepository {
     private final ApiService apiService;
     private final Context context;
-    private final FirebaseStorageService firebaseStorage;
+    private final StorageService storageService;
 
     public NotesRepositoryImpl(Context context) {
         this.context = context.getApplicationContext();
         this.apiService = ApiClient.getApiService();
-        this.firebaseStorage = FirebaseStorageService.getInstance();
+        this.storageService = AppwriteStorageService.getInstance();
     }
 
     @Override
@@ -92,16 +93,16 @@ public class NotesRepositoryImpl implements NotesRepository {
 
             String filename = file.getName();
             String timestamp = String.valueOf(System.currentTimeMillis());
-            String firebaseFilename = timestamp + "_" + filename;
+            String storageFilename = timestamp + "_" + filename;
 
-            firebaseStorage.uploadFile(file, firebaseFilename, new FirebaseStorageService.UploadCallback() {
+            storageService.uploadFile(file, storageFilename, new StorageService.UploadCallback() {
                 @Override
                 public void onSuccess(String fileDownloadUrl, String fileStoragePath) {
                     if (thumbnailPath != null && !thumbnailPath.isEmpty()) {
                         File thumbFile = new File(thumbnailPath);
                         if (thumbFile.exists()) {
                             String thumbFilename = timestamp + "_" + thumbFile.getName();
-                            firebaseStorage.uploadThumbnail(thumbFile, thumbFilename, new FirebaseStorageService.UploadCallback() {
+                            storageService.uploadThumbnail(thumbFile, thumbFilename, new StorageService.UploadCallback() {
                                 @Override
                                 public void onSuccess(String thumbDownloadUrl, String thumbStoragePath) {
                                     sendMetadataToBackend(title, subject, semester, branch, college, 
@@ -132,7 +133,7 @@ public class NotesRepositoryImpl implements NotesRepository {
 
                 @Override
                 public void onError(String error) {
-                    callback.onError("Firebase upload failed: " + error);
+                    callback.onError("Storage upload failed: " + error);
                 }
             });
         } catch (Exception e) {
@@ -152,7 +153,7 @@ public class NotesRepositoryImpl implements NotesRepository {
         RequestBody filePathBody = RequestBody.create(MediaType.parse("text/plain"), filePath);
         RequestBody thumbUrlBody = thumbUrl != null ? RequestBody.create(MediaType.parse("text/plain"), thumbUrl) : RequestBody.create(MediaType.parse("text/plain"), "");
 
-        apiService.uploadNoteWithFirebase(titleBody, subjectBody, semesterBody, branchBody, collegeBody, 
+        apiService.uploadNoteMetadata(titleBody, subjectBody, semesterBody, branchBody, collegeBody, 
                 fileUrlBody, filePathBody, thumbUrlBody).enqueue(new Callback<NoteDto>() {
             @Override
             public void onResponse(Call<NoteDto> call, Response<NoteDto> response) {
@@ -181,8 +182,8 @@ public class NotesRepositoryImpl implements NotesRepository {
                     if (contentType != null && contentType.contains("application/json")) {
                         try {
                             String jsonResponse = response.body().string();
-                            if (jsonResponse.contains("firebase") || jsonResponse.contains("gs://")) {
-                                downloadFromFirebase(jsonResponse, filename, callback);
+                            if (jsonResponse.contains("file_path") || jsonResponse.contains("appwrite") || jsonResponse.contains("storage")) {
+                                downloadFromStorage(jsonResponse, filename, callback);
                             } else {
                                 saveFile(response.body(), filename, callback);
                             }
@@ -206,10 +207,10 @@ public class NotesRepositoryImpl implements NotesRepository {
 
     @Override
     public void downloadNote(Note note, DownloadCallback callback) {
-        String firebasePath = extractFirebasePathFromNote(note);
-        if (firebasePath != null && !firebasePath.isEmpty()) {
+        String storagePath = extractStoragePathFromNote(note);
+        if (storagePath != null && !storagePath.isEmpty()) {
             File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            firebaseStorage.downloadFile(firebasePath, note.getFilename(), downloadsDir, new FirebaseStorageService.DownloadCallback() {
+            storageService.downloadFile(storagePath, note.getFilename(), downloadsDir, new StorageService.DownloadCallback() {
                 @Override
                 public void onSuccess(String filePath) {
                     callback.onSuccess(filePath);
@@ -220,7 +221,7 @@ public class NotesRepositoryImpl implements NotesRepository {
 
                 @Override
                 public void onError(String error) {
-                    callback.onError("Firebase download failed: " + error);
+                    callback.onError("Storage download failed: " + error);
                 }
             });
         } else {
@@ -228,19 +229,19 @@ public class NotesRepositoryImpl implements NotesRepository {
         }
     }
 
-    private String extractFirebasePathFromNote(Note note) {
+    private String extractStoragePathFromNote(Note note) {
         if (note.getFilePath() != null && !note.getFilePath().isEmpty()) {
             return note.getFilePath();
         }
         return null;
     }
 
-    private void downloadFromFirebase(String jsonResponse, String filename, DownloadCallback callback) {
+    private void downloadFromStorage(String jsonResponse, String filename, DownloadCallback callback) {
         try {
             String storagePath = extractStoragePath(jsonResponse);
             if (storagePath != null && !storagePath.isEmpty()) {
                 File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-                firebaseStorage.downloadFile(storagePath, filename, downloadsDir, new FirebaseStorageService.DownloadCallback() {
+                storageService.downloadFile(storagePath, filename, downloadsDir, new StorageService.DownloadCallback() {
                     @Override
                     public void onSuccess(String filePath) {
                         callback.onSuccess(filePath);
@@ -251,11 +252,11 @@ public class NotesRepositoryImpl implements NotesRepository {
 
                     @Override
                     public void onError(String error) {
-                        callback.onError("Firebase download failed: " + error);
+                        callback.onError("Storage download failed: " + error);
                     }
                 });
             } else {
-                callback.onError("Firebase storage path not found");
+                callback.onError("Storage path not found");
             }
         } catch (Exception e) {
             callback.onError("Error extracting storage path: " + e.getMessage());
