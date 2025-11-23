@@ -184,13 +184,35 @@ public class AppwriteStorageService implements StorageService {
                         String fileId = java.util.UUID.randomUUID().toString();
                         String uploadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files";
                         
+                        Log.d(TAG, "Connecting to: " + uploadUrl);
                         String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
                         URL url = new URL(uploadUrl);
                         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                         connection.setRequestMethod("POST");
                         connection.setDoOutput(true);
+                        connection.setConnectTimeout(30000); // 30 seconds
+                        connection.setReadTimeout(60000); // 60 seconds for large files
                         connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
                         connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+                        
+                        // Add session cookie if available
+                        if (cookieManager != null) {
+                            try {
+                                java.net.CookieStore cookieStore = cookieManager.getCookieStore();
+                                java.util.List<java.net.HttpCookie> cookies = cookieStore.getCookies();
+                                if (!cookies.isEmpty()) {
+                                    StringBuilder cookieHeader = new StringBuilder();
+                                    for (int i = 0; i < cookies.size(); i++) {
+                                        if (i > 0) cookieHeader.append("; ");
+                                        cookieHeader.append(cookies.get(i).getName()).append("=").append(cookies.get(i).getValue());
+                                    }
+                                    connection.setRequestProperty("Cookie", cookieHeader.toString());
+                                    Log.d(TAG, "Added session cookie to upload request");
+                                }
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to add session cookie", e);
+                            }
+                        }
                     
                     OutputStream outputStream = connection.getOutputStream();
                     java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.OutputStreamWriter(outputStream, "UTF-8"), true);
@@ -309,13 +331,35 @@ public class AppwriteStorageService implements StorageService {
                         String fileId = java.util.UUID.randomUUID().toString();
                         String uploadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files";
                         
+                        Log.d(TAG, "Connecting to: " + uploadUrl);
                         String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
                         URL url = new URL(uploadUrl);
                         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                         connection.setRequestMethod("POST");
                         connection.setDoOutput(true);
+                        connection.setConnectTimeout(30000); // 30 seconds
+                        connection.setReadTimeout(60000); // 60 seconds for large files
                         connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
                         connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+                        
+                        // Add session cookie if available
+                        if (cookieManager != null) {
+                            try {
+                                java.net.CookieStore cookieStore = cookieManager.getCookieStore();
+                                java.util.List<java.net.HttpCookie> cookies = cookieStore.getCookies();
+                                if (!cookies.isEmpty()) {
+                                    StringBuilder cookieHeader = new StringBuilder();
+                                    for (int i = 0; i < cookies.size(); i++) {
+                                        if (i > 0) cookieHeader.append("; ");
+                                        cookieHeader.append(cookies.get(i).getName()).append("=").append(cookies.get(i).getValue());
+                                    }
+                                    connection.setRequestProperty("Cookie", cookieHeader.toString());
+                                    Log.d(TAG, "Added session cookie to thumbnail upload request");
+                                }
+                            } catch (Exception e) {
+                                Log.w(TAG, "Failed to add session cookie", e);
+                            }
+                        }
                     
                     OutputStream outputStream = connection.getOutputStream();
                     java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.OutputStreamWriter(outputStream, "UTF-8"), true);
