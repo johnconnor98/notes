@@ -136,8 +136,15 @@ public class AppwriteDatabaseService implements DatabaseService {
                 String dataJson = gson.toJson(data);
                 Log.d(TAG, "Document data: " + dataJson);
                 
-                String formData = "documentId=" + URLEncoder.encode(documentId, "UTF-8") + 
-                                "&data=" + URLEncoder.encode(dataJson, "UTF-8");
+                String formData;
+                try {
+                    formData = "documentId=" + URLEncoder.encode(documentId, "UTF-8") + 
+                              "&data=" + URLEncoder.encode(dataJson, "UTF-8");
+                } catch (java.io.UnsupportedEncodingException e) {
+                    Log.e(TAG, "Error encoding form data", e);
+                    // Fallback: use unencoded data (may cause issues with special chars)
+                    formData = "documentId=" + documentId + "&data=" + dataJson;
+                }
                 
                 HttpURLConnection connection = createConnection(url, "POST");
                 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
@@ -206,9 +213,16 @@ public class AppwriteDatabaseService implements DatabaseService {
             }
             queriesJson.append("]");
             
-            String encodedQueries = URLEncoder.encode(queriesJson.toString(), "UTF-8");
-            url += "?queries=" + encodedQueries;
-            hasQuery = true;
+                    try {
+                        String encodedQueries = URLEncoder.encode(queriesJson.toString(), "UTF-8");
+                        url += "?queries=" + encodedQueries;
+                        hasQuery = true;
+                    } catch (java.io.UnsupportedEncodingException e) {
+                        Log.e(TAG, "Error encoding queries", e);
+                        // Fallback: use queries without encoding (may cause issues with special chars)
+                        url += "?queries=" + queriesJson.toString();
+                        hasQuery = true;
+                    }
         }
         
         url += (hasQuery ? "&" : "?") + "project=" + PROJECT_ID;
