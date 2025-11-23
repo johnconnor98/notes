@@ -308,8 +308,10 @@ public class NotesRepositoryImpl implements NotesRepository {
                 data.addProperty("semester", semester != null ? semester : "");
                 data.addProperty("branch", branch != null ? branch : "");
                 data.addProperty("college", college != null ? college : "");
-                // Note: filePath and thumbnailPath are not in the collection schema
-                // If you need them, add them as attributes in Appwrite Console first
+                // filePath is required for downloads - add it as a String attribute in Appwrite Console
+                data.addProperty("filePath", filePath != null ? filePath : "");
+                // thumbnailPath is optional - add it as a String attribute in Appwrite Console if needed
+                data.addProperty("thumbnailPath", thumbPath != null ? thumbPath : "");
                 
                 // Appwrite expects form-urlencoded with "documentId" and "data" parameters
                 String dataJson = gson.toJson(data);
