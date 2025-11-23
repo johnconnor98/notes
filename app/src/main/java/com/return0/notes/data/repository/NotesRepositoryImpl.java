@@ -152,7 +152,7 @@ public class NotesRepositoryImpl implements NotesRepository {
                     });
                 } else {
                     InputStream errorStream = connection.getErrorStream();
-                    String errorMessage = "HTTP error code: " + responseCode;
+                    final String errorMessage;
                     if (errorStream != null) {
                         java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
                         StringBuilder error = new StringBuilder();
@@ -160,12 +160,15 @@ public class NotesRepositoryImpl implements NotesRepository {
                         while ((line = reader.readLine()) != null) {
                             error.append(line);
                         }
-                        errorMessage = error.toString();
+                        errorMessage = "HTTP error code: " + responseCode + " - " + error.toString();
                         reader.close();
+                    } else {
+                        errorMessage = "HTTP error code: " + responseCode;
                     }
                     Log.e(TAG, "Appwrite Database error: " + errorMessage);
+                    final String finalErrorMessage = errorMessage;
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Database error: " + errorMessage);
+                        callback.onError("Database error: " + finalErrorMessage);
                     });
                 }
                 connection.disconnect();
@@ -357,7 +360,7 @@ public class NotesRepositoryImpl implements NotesRepository {
                     });
                 } else {
                     InputStream errorStream = connection.getErrorStream();
-                    String errorMessage = "HTTP error code: " + responseCode;
+                    final String errorMessage;
                     if (errorStream != null) {
                         java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
                         StringBuilder error = new StringBuilder();
@@ -365,12 +368,15 @@ public class NotesRepositoryImpl implements NotesRepository {
                         while ((line = reader.readLine()) != null) {
                             error.append(line);
                         }
-                        errorMessage = error.toString();
+                        errorMessage = "HTTP error code: " + responseCode + " - " + error.toString();
                         reader.close();
+                    } else {
+                        errorMessage = "HTTP error code: " + responseCode;
                     }
                     Log.e(TAG, "Failed to create document in Appwrite Database: " + errorMessage);
+                    final String finalErrorMessage = errorMessage;
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Database save failed: " + errorMessage);
+                        callback.onError("Database save failed: " + finalErrorMessage);
                     });
                 }
                 connection.disconnect();
@@ -441,7 +447,7 @@ public class NotesRepositoryImpl implements NotesRepository {
                     }
                 } else {
                     InputStream errorStream = connection.getErrorStream();
-                    String errorMessage = "HTTP error code: " + responseCode;
+                    final String errorMessage;
                     if (errorStream != null) {
                         java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
                         StringBuilder error = new StringBuilder();
@@ -449,11 +455,14 @@ public class NotesRepositoryImpl implements NotesRepository {
                         while ((line = reader.readLine()) != null) {
                             error.append(line);
                         }
-                        errorMessage = error.toString();
+                        errorMessage = "HTTP error code: " + responseCode + " - " + error.toString();
                         reader.close();
+                    } else {
+                        errorMessage = "HTTP error code: " + responseCode;
                     }
+                    final String finalErrorMessage = errorMessage;
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Failed to get document: " + errorMessage);
+                        callback.onError("Failed to get document: " + finalErrorMessage);
                     });
                 }
                 connection.disconnect();
