@@ -60,73 +60,40 @@ public class AppwriteDatabaseService implements DatabaseService {
                 String baseUrl = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
                 Log.d(TAG, "Base URL: " + baseUrl);
                 
-                // Build queries array using Appwrite Query class to ensure correct format
-                // Query.equal() returns the exact string format Appwrite expects
+                // Build queries array - Appwrite REST API format
+                // Format: equal("field","value") - this is the exact format Appwrite expects
+                // Based on Appwrite documentation, Query.equal() returns strings in this format
                 List<String> queryStrings = new ArrayList<>();
-                try {
-                    Log.d(TAG, "Generating queries using Appwrite Query class...");
-                    // Use Appwrite SDK Query class to generate properly formatted query strings
-                    // Based on Appwrite SDK, Query.equal() takes: Query.equal(String attribute, List<Object> values)
-                    // For single string values, wrap in Collections.singletonList with Object cast
-                    if (subject != null && !subject.isEmpty()) {
-                        java.util.List<Object> valueList = java.util.Collections.singletonList((Object)subject);
-                        String query = io.appwrite.Query.equal("subject", valueList);
-                        queryStrings.add(query);
-                        Log.d(TAG, "  ✓ Subject query generated: " + query);
-                        Log.d(TAG, "    Query length: " + query.length() + " chars");
-                    }
-                    if (semester != null && !semester.isEmpty()) {
-                        java.util.List<Object> valueList = java.util.Collections.singletonList((Object)semester);
-                        String query = io.appwrite.Query.equal("semester", valueList);
-                        queryStrings.add(query);
-                        Log.d(TAG, "  ✓ Semester query generated: " + query);
-                        Log.d(TAG, "    Query length: " + query.length() + " chars");
-                    }
-                    if (branch != null && !branch.isEmpty()) {
-                        java.util.List<Object> valueList = java.util.Collections.singletonList((Object)branch);
-                        String query = io.appwrite.Query.equal("branch", valueList);
-                        queryStrings.add(query);
-                        Log.d(TAG, "  ✓ Branch query generated: " + query);
-                        Log.d(TAG, "    Query length: " + query.length() + " chars");
-                    }
-                    if (college != null && !college.isEmpty()) {
-                        java.util.List<Object> valueList = java.util.Collections.singletonList((Object)college);
-                        String query = io.appwrite.Query.equal("college", valueList);
-                        queryStrings.add(query);
-                        Log.d(TAG, "  ✓ College query generated: " + query);
-                        Log.d(TAG, "    Query length: " + query.length() + " chars");
-                    }
-                    Log.d(TAG, "Total queries generated: " + queryStrings.size());
-                } catch (Exception e) {
-                    Log.e(TAG, "ERROR: Failed to generate queries with Query class", e);
-                    Log.e(TAG, "Exception type: " + e.getClass().getName());
-                    Log.e(TAG, "Exception message: " + e.getMessage());
-                    if (e.getCause() != null) {
-                        Log.e(TAG, "Caused by: " + e.getCause().getMessage());
-                    }
-                    // Fallback to manual format if Query class fails
-                    Log.d(TAG, "Falling back to manual query format...");
-                    if (subject != null && !subject.isEmpty()) {
-                        String manualQuery = "equal(\"subject\",\"" + escapeJsonString(subject) + "\")";
-                        queryStrings.add(manualQuery);
-                        Log.d(TAG, "  Manual subject query: " + manualQuery);
-                    }
-                    if (semester != null && !semester.isEmpty()) {
-                        String manualQuery = "equal(\"semester\",\"" + escapeJsonString(semester) + "\")";
-                        queryStrings.add(manualQuery);
-                        Log.d(TAG, "  Manual semester query: " + manualQuery);
-                    }
-                    if (branch != null && !branch.isEmpty()) {
-                        String manualQuery = "equal(\"branch\",\"" + escapeJsonString(branch) + "\")";
-                        queryStrings.add(manualQuery);
-                        Log.d(TAG, "  Manual branch query: " + manualQuery);
-                    }
-                    if (college != null && !college.isEmpty()) {
-                        String manualQuery = "equal(\"college\",\"" + escapeJsonString(college) + "\")";
-                        queryStrings.add(manualQuery);
-                        Log.d(TAG, "  Manual college query: " + manualQuery);
-                    }
+                Log.d(TAG, "Generating queries in Appwrite format...");
+                
+                // Build query strings manually in the format: equal("field","value")
+                // This matches what Query.equal() would return
+                if (subject != null && !subject.isEmpty()) {
+                    // Format: equal("subject","value") - proper JSON escaping for the value
+                    String query = "equal(\"subject\",\"" + escapeJsonString(subject) + "\")";
+                    queryStrings.add(query);
+                    Log.d(TAG, "  ✓ Subject query: " + query);
+                    Log.d(TAG, "    Query length: " + query.length() + " chars");
                 }
+                if (semester != null && !semester.isEmpty()) {
+                    String query = "equal(\"semester\",\"" + escapeJsonString(semester) + "\")";
+                    queryStrings.add(query);
+                    Log.d(TAG, "  ✓ Semester query: " + query);
+                    Log.d(TAG, "    Query length: " + query.length() + " chars");
+                }
+                if (branch != null && !branch.isEmpty()) {
+                    String query = "equal(\"branch\",\"" + escapeJsonString(branch) + "\")";
+                    queryStrings.add(query);
+                    Log.d(TAG, "  ✓ Branch query: " + query);
+                    Log.d(TAG, "    Query length: " + query.length() + " chars");
+                }
+                if (college != null && !college.isEmpty()) {
+                    String query = "equal(\"college\",\"" + escapeJsonString(college) + "\")";
+                    queryStrings.add(query);
+                    Log.d(TAG, "  ✓ College query: " + query);
+                    Log.d(TAG, "    Query length: " + query.length() + " chars");
+                }
+                Log.d(TAG, "Total queries generated: " + queryStrings.size());
                 
                 // Build JSON array of query strings (as Appwrite SDK expects)
                 // Format: ["equal(\"field\",\"value\")", "equal(\"field2\",\"value2\")"]
