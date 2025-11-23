@@ -18,8 +18,24 @@ public class FirebaseStorageService {
     private static final String THUMBNAILS_FOLDER = "thumbnails";
 
     private FirebaseStorageService() {
-        storage = FirebaseStorage.getInstance();
-        Log.d(TAG, "FirebaseStorageService initialized - Storage bucket: " + storage.getReference().getBucket());
+        try {
+            // Initialize with explicit bucket URL from google-services.json
+            String bucketUrl = "gs://notes-19449.firebasestorage.app";
+            storage = FirebaseStorage.getInstance(bucketUrl);
+            Log.d(TAG, "FirebaseStorageService initialized");
+            Log.d(TAG, "Storage bucket: " + storage.getReference().getBucket());
+            Log.d(TAG, "Storage bucket URL: " + bucketUrl);
+            
+            // Test connection by getting root reference
+            StorageReference rootRef = storage.getReference();
+            Log.d(TAG, "Root reference path: " + rootRef.getPath());
+            Log.d(TAG, "Root reference name: " + rootRef.getName());
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing Firebase Storage", e);
+            // Fallback to default instance
+            storage = FirebaseStorage.getInstance();
+            Log.w(TAG, "Using default Firebase Storage instance");
+        }
     }
 
     public static synchronized FirebaseStorageService getInstance() {
@@ -66,7 +82,11 @@ public class FirebaseStorageService {
             }
             
             StorageReference ref = storage.getReference().child(path);
-            Log.d(TAG, "Firebase Storage reference created: " + ref.getPath());
+            Log.d(TAG, "Firebase Storage reference created");
+            Log.d(TAG, "  - Full path: " + ref.getPath());
+            Log.d(TAG, "  - Bucket: " + ref.getBucket());
+            Log.d(TAG, "  - Name: " + ref.getName());
+            Log.d(TAG, "  - Full URL: gs://" + ref.getBucket() + "/" + ref.getPath());
             
             FileInputStream fileInputStream = new FileInputStream(file);
             byte[] buffer = new byte[(int) fileSize];
@@ -105,7 +125,19 @@ public class FirebaseStorageService {
                 if (e.getCause() != null) {
                     Log.e(TAG, "Upload failure cause: " + e.getCause().getMessage(), e.getCause());
                 }
-                callback.onError("Upload failed: " + e.getMessage());
+                
+                // Check for 404 error specifically
+                String errorMsg = e.getMessage();
+                if (errorMsg != null && errorMsg.contains("404")) {
+                    Log.e(TAG, "404 Error detected - Firebase Storage bucket may not exist or Storage is not enabled");
+                    Log.e(TAG, "Please check:");
+                    Log.e(TAG, "  1. Firebase Console > Storage > Enable Storage if not enabled");
+                    Log.e(TAG, "  2. Verify bucket name: notes-19449.firebasestorage.app");
+                    Log.e(TAG, "  3. Check Storage Rules in Firebase Console");
+                    callback.onError("Firebase Storage not found. Please enable Storage in Firebase Console.");
+                } else {
+                    callback.onError("Upload failed: " + e.getMessage());
+                }
             });
         } catch (Exception e) {
             Log.e(TAG, "Error reading file: " + file.getAbsolutePath(), e);
