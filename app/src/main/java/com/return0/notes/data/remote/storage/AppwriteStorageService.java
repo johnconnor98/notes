@@ -64,7 +64,8 @@ public class AppwriteStorageService implements StorageService {
                 }
                 
                 try {
-                    account.createAnonymousSession(new kotlin.coroutines.Continuation<io.appwrite.models.Session>() {
+                    // First, try to get the current session to see if one already exists
+                    account.get(new kotlin.coroutines.Continuation<io.appwrite.models.User>() {
                         @Override
                         public kotlin.coroutines.CoroutineContext getContext() {
                             return kotlin.coroutines.EmptyCoroutineContext.INSTANCE;
@@ -73,39 +74,75 @@ public class AppwriteStorageService implements StorageService {
                         @Override
                         public void resumeWith(Object result) {
                             try {
-                                // Check if result indicates success or failure
                                 String resultStr = result != null ? result.toString() : "null";
                                 
-                                // If result contains "Failure" or exception info, it's a failure
-                                if (resultStr.contains("Failure") || resultStr.contains("Exception")) {
-                                    Log.e(TAG, "Failed to create anonymous session: " + resultStr);
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                                        // Still try to proceed - session might work anyway
-                                        sessionCreated.set(true);
-                                        onComplete.run();
-                                    });
-                                } else {
-                                    // Assume success - Appwrite SDK handles session storage
+                                // If we can get user account, session already exists
+                                if (!resultStr.contains("Failure") && !resultStr.contains("Exception") && !resultStr.contains("401")) {
                                     sessionCreated.set(true);
-                                    Log.d(TAG, "Anonymous session created successfully");
+                                    Log.d(TAG, "Session already exists");
                                     onComplete.run();
+                                } else {
+                                    // No session exists, create one
+                                    createAnonymousSession(onComplete);
                                 }
                             } catch (Exception e) {
-                                Log.e(TAG, "Error processing session result", e);
-                                // Proceed anyway - session might still work
-                                sessionCreated.set(true);
-                                onComplete.run();
+                                Log.d(TAG, "No existing session found, creating new one");
+                                createAnonymousSession(onComplete);
                             }
                         }
                     });
                 } catch (Exception e) {
-                    Log.e(TAG, "Error creating anonymous session", e);
-                    // Still try to proceed
-                    sessionCreated.set(true);
-                    onComplete.run();
+                    Log.d(TAG, "Error checking session, creating new one", e);
+                    createAnonymousSession(onComplete);
                 }
             }
         });
+    }
+    
+    private void createAnonymousSession(Runnable onComplete) {
+        try {
+            account.createAnonymousSession(new kotlin.coroutines.Continuation<io.appwrite.models.Session>() {
+                @Override
+                public kotlin.coroutines.CoroutineContext getContext() {
+                    return kotlin.coroutines.EmptyCoroutineContext.INSTANCE;
+                }
+
+                @Override
+                public void resumeWith(Object result) {
+                    try {
+                        String resultStr = result != null ? result.toString() : "null";
+                        
+                        // Check for specific error about session already existing
+                        if (resultStr.contains("session is active") || resultStr.contains("session is prohibited")) {
+                            // Session already exists, that's fine
+                            sessionCreated.set(true);
+                            Log.d(TAG, "Session already active (attempted to create duplicate)");
+                            onComplete.run();
+                        } else if (resultStr.contains("Failure") || resultStr.contains("Exception")) {
+                            Log.w(TAG, "Failed to create anonymous session: " + resultStr);
+                            // Still try to proceed - might work with existing session
+                            sessionCreated.set(true);
+                            onComplete.run();
+                        } else {
+                            // Assume success
+                            sessionCreated.set(true);
+                            Log.d(TAG, "Anonymous session created successfully");
+                            onComplete.run();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error processing session result", e);
+                        // Proceed anyway
+                        sessionCreated.set(true);
+                        onComplete.run();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating anonymous session", e);
+            // Still try to proceed
+            sessionCreated.set(true);
+            onComplete.run();
+        }
     }
 
     public static synchronized AppwriteStorageService getInstance(Context context) {
