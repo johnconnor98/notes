@@ -70,22 +70,27 @@ public class AppwriteDatabaseService implements DatabaseService {
                     queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                // Build query parameters - Appwrite expects queries as a JSON array
-                // Format: queries=["equal(\"field\",\"value\")"]
+                // Build query parameters - Appwrite REST API expects queries as array
+                // Format: queries=["equal(\"field\",\"value\")"] as a JSON array string
                 if (!queryStrings.isEmpty()) {
-                    // Use Gson to create a proper JSON array
-                    String queriesJson = gson.toJson(queryStrings);
+                    // Build JSON array - each query is a JSON string
+                    JsonArray queriesArray = new JsonArray();
+                    for (String query : queryStrings) {
+                        queriesArray.add(query);
+                    }
+                    String queriesJson = gson.toJson(queriesArray);
                     Log.d(TAG, "Queries JSON: " + queriesJson);
                     
                     try {
-                        // URL encode the JSON array
-                        String encodedQueries = URLEncoder.encode(queriesJson, "UTF-8");
-                        url += "&queries=" + encodedQueries;
-                        Log.d(TAG, "Encoded queries: " + encodedQueries);
+                        // URL encode the entire JSON array string
+                        String encoded = URLEncoder.encode(queriesJson, "UTF-8");
+                        url += "&queries=" + encoded;
+                        Log.d(TAG, "Encoded queries: " + encoded);
                     } catch (java.io.UnsupportedEncodingException e) {
                         Log.e(TAG, "Error encoding queries", e);
                         url += "&queries=" + queriesJson;
                     }
+                    Log.d(TAG, "Full URL length: " + url.length() + " chars");
                 }
                 
                 HttpURLConnection connection = createConnection(url, "GET");
