@@ -219,11 +219,18 @@ public class AppwriteStorageService implements StorageService {
                             errorMessage = error.toString();
                             reader.close();
                         }
+                        
+                        // Check if it's a bucket not found error
+                        if (errorMessage.contains("storage_bucket_not_found") || errorMessage.contains("could not be found")) {
+                            Log.e(TAG, "Storage bucket '" + NOTES_BUCKET_ID + "' not found in Appwrite. Please create the bucket in Appwrite console.");
+                            Log.e(TAG, "Go to: Storage -> Create Bucket -> Bucket ID: " + NOTES_BUCKET_ID);
+                        }
+                        
                         throw new Exception(errorMessage);
                     }
                     connection.disconnect();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error during upload - Filename: " + filename, e);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error during upload - Filename: " + filename, e);
                         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                             callback.onError("Upload error: " + e.getMessage());
                         });
@@ -336,11 +343,18 @@ public class AppwriteStorageService implements StorageService {
                             errorMessage = error.toString();
                             reader.close();
                         }
+                        
+                        // Check if it's a bucket not found error
+                        if (errorMessage.contains("storage_bucket_not_found") || errorMessage.contains("could not be found")) {
+                            Log.e(TAG, "Storage bucket '" + THUMBNAILS_BUCKET_ID + "' not found in Appwrite. Please create the bucket in Appwrite console.");
+                            Log.e(TAG, "Go to: Storage -> Create Bucket -> Bucket ID: " + THUMBNAILS_BUCKET_ID);
+                        }
+                        
                         throw new Exception(errorMessage);
                     }
                     connection.disconnect();
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error during thumbnail upload - Filename: " + filename, e);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error during thumbnail upload - Filename: " + filename, e);
                         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                             callback.onError("Thumbnail upload error: " + e.getMessage());
                         });
