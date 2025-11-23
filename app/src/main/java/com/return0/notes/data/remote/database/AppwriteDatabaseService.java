@@ -72,8 +72,10 @@ public class AppwriteDatabaseService implements DatabaseService {
                 
                 // Build query parameters - Appwrite REST API expects queries as URL parameter
                 // Format: queries=["equal(\"field\",\"value\")"] as JSON array string
+                // Appwrite expects the queries parameter to be a JSON array of strings
                 if (!queryStrings.isEmpty()) {
-                    // Create JSON array of query strings
+                    // Use Gson to properly format the JSON array
+                    // Gson will handle escaping quotes in the query strings automatically
                     JsonArray queriesArray = new JsonArray();
                     for (String query : queryStrings) {
                         queriesArray.add(query);
@@ -81,11 +83,16 @@ public class AppwriteDatabaseService implements DatabaseService {
                     String queriesJson = gson.toJson(queriesArray);
                     Log.d(TAG, "Queries JSON: " + queriesJson);
                     
+                    // Appwrite REST API may need the brackets to remain unencoded
+                    // Preserve brackets during encoding
+                    String temp = queriesJson.replace("[", "___OPEN_BRACKET___")
+                                             .replace("]", "___CLOSE_BRACKET___");
                     try {
-                        // URL encode the JSON array
-                        String encoded = URLEncoder.encode(queriesJson, "UTF-8");
+                        String encoded = URLEncoder.encode(temp, "UTF-8");
+                        encoded = encoded.replace("___OPEN_BRACKET___", "[")
+                                        .replace("___CLOSE_BRACKET___", "]");
                         url += "&queries=" + encoded;
-                        Log.d(TAG, "Encoded queries: " + encoded);
+                        Log.d(TAG, "Encoded queries (brackets preserved): " + encoded);
                     } catch (java.io.UnsupportedEncodingException e) {
                         Log.e(TAG, "Error encoding queries", e);
                         url += "&queries=" + queriesJson;
