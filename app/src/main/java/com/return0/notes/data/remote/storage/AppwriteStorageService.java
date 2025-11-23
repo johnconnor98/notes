@@ -2,24 +2,18 @@ package com.return0.notes.data.remote.storage;
 
 import android.content.Context;
 import android.util.Log;
-import io.appwrite.Client;
-import io.appwrite.services.Storage;
-import io.appwrite.InputFile;
-import io.appwrite.exceptions.AppwriteException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.File;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.concurrent.CompletableFuture;
-import kotlin.coroutines.Continuation;
-import kotlin.coroutines.CoroutineContext;
-import kotlin.coroutines.EmptyCoroutineContext;
-import kotlin.Result;
 
 public class AppwriteStorageService implements StorageService {
     private static final String TAG = "AppwriteStorageService";
     private static AppwriteStorageService instance;
-    private final Storage storage;
     private static final String NOTES_BUCKET_ID = "notes";
     private static final String THUMBNAILS_BUCKET_ID = "thumbnails";
     
@@ -27,16 +21,10 @@ public class AppwriteStorageService implements StorageService {
     private static final String PROJECT_ID = "6922970a001ab5faef56";
     private static final String API_KEY = "standard_c50102f470efafa6715e49beab3390411ad890f3f9e5fed0efb299054a373a95b21e7d44158f900d89876e2a796910ea1653624350a9c73b072498605c0f1794f6c348a30471f968d9886e4d1821aabc0ac91ccea5bd1101d65da3af26fbe10e31229a2b19f437af22230583301353fd166783a783a90f11c91f5d0c4cae2a72";
 
-    private Client client;
     private Context context;
     
     private AppwriteStorageService(Context context) {
         this.context = context.getApplicationContext();
-        client = new Client(context)
-            .setEndpoint(ENDPOINT)
-            .setProject(PROJECT_ID);
-        
-        storage = new Storage(client);
         Log.d(TAG, "AppwriteStorageService initialized");
         Log.d(TAG, "Endpoint: " + ENDPOINT);
         Log.d(TAG, "Project ID: " + PROJECT_ID);
@@ -78,43 +66,84 @@ public class AppwriteStorageService implements StorageService {
             CompletableFuture.runAsync(() -> {
                 try {
                     String fileId = java.util.UUID.randomUUID().toString();
-                    InputFile inputFile = InputFile.fromFile(file);
+                    String uploadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files";
                     
-                    storage.createFile(
-                        NOTES_BUCKET_ID,
-                        fileId,
-                        inputFile,
-                        new Continuation<io.appwrite.models.File>() {
-                            @Override
-                            public CoroutineContext getContext() {
-                                return EmptyCoroutineContext.INSTANCE;
-                            }
-
-                            @Override
-                            public void resumeWith(Result<io.appwrite.models.File> result) {
-                                if (result.isSuccess()) {
-                                    io.appwrite.models.File uploadedFile = result.getValue();
-                                    String uploadedFileId = uploadedFile.getId();
-                                    String downloadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
-                                    String storagePath = NOTES_BUCKET_ID + "/" + uploadedFileId;
-                                    
-                                    Log.d(TAG, "Upload successful - File ID: " + uploadedFileId);
-                                    Log.d(TAG, "Download URL: " + downloadUrl);
-                                    Log.d(TAG, "Storage path: " + storagePath);
-                                    
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                                        callback.onSuccess(downloadUrl, storagePath);
-                                    });
-                                } else {
-                                    Throwable exception = result.exceptionOrNull();
-                                    Log.e(TAG, "Upload failed - Filename: " + filename + ", Error: " + (exception != null ? exception.getMessage() : "Unknown error"), exception);
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                                        callback.onError("Upload failed: " + (exception != null ? exception.getMessage() : "Unknown error"));
-                                    });
-                                }
-                            }
+                    String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+                    URL url = new URL(uploadUrl);
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("POST");
+                    connection.setDoOutput(true);
+                    connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+                    connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+                    connection.setRequestProperty("X-Appwrite-Key", API_KEY);
+                    
+                    OutputStream outputStream = connection.getOutputStream();
+                    java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.OutputStreamWriter(outputStream, "UTF-8"), true);
+                    
+                    writer.append("--" + boundary).append("\r\n");
+                    writer.append("Content-Disposition: form-data; name=\"fileId\"").append("\r\n");
+                    writer.append("\r\n");
+                    writer.append(fileId).append("\r\n");
+                    writer.flush();
+                    
+                    writer.append("--" + boundary).append("\r\n");
+                    writer.append("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"").append("\r\n");
+                    writer.append("Content-Type: application/octet-stream").append("\r\n");
+                    writer.append("\r\n");
+                    writer.flush();
+                    
+                    FileInputStream fileInputStream = new FileInputStream(file);
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, bytesRead);
+                    }
+                    outputStream.flush();
+                    fileInputStream.close();
+                    
+                    writer.append("\r\n");
+                    writer.append("--" + boundary + "--").append("\r\n");
+                    writer.flush();
+                    writer.close();
+                    
+                    int responseCode = connection.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
+                        InputStream responseStream = connection.getInputStream();
+                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(responseStream));
+                        StringBuilder response = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            response.append(line);
                         }
-                    );
+                        reader.close();
+                        
+                        String uploadedFileId = fileId;
+                        String downloadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
+                        String storagePath = NOTES_BUCKET_ID + "/" + uploadedFileId;
+                        
+                        Log.d(TAG, "Upload successful - File ID: " + uploadedFileId);
+                        Log.d(TAG, "Download URL: " + downloadUrl);
+                        Log.d(TAG, "Storage path: " + storagePath);
+                        
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            callback.onSuccess(downloadUrl, storagePath);
+                        });
+                    } else {
+                        InputStream errorStream = connection.getErrorStream();
+                        String errorMessage = "HTTP error code: " + responseCode;
+                        if (errorStream != null) {
+                            java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
+                            StringBuilder error = new StringBuilder();
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                error.append(line);
+                            }
+                            errorMessage = error.toString();
+                            reader.close();
+                        }
+                        throw new Exception(errorMessage);
+                    }
+                    connection.disconnect();
                 } catch (Exception e) {
                     Log.e(TAG, "Error during upload - Filename: " + filename, e);
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
@@ -154,42 +183,83 @@ public class AppwriteStorageService implements StorageService {
             CompletableFuture.runAsync(() -> {
                 try {
                     String fileId = java.util.UUID.randomUUID().toString();
-                    InputFile inputFile = InputFile.fromFile(file);
+                    String uploadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files";
                     
-                    storage.createFile(
-                        THUMBNAILS_BUCKET_ID,
-                        fileId,
-                        inputFile,
-                        new Continuation<io.appwrite.models.File>() {
-                            @Override
-                            public CoroutineContext getContext() {
-                                return EmptyCoroutineContext.INSTANCE;
-                            }
-
-                            @Override
-                            public void resumeWith(Result<io.appwrite.models.File> result) {
-                                if (result.isSuccess()) {
-                                    io.appwrite.models.File uploadedFile = result.getValue();
-                                    String uploadedFileId = uploadedFile.getId();
-                                    String downloadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
-                                    String storagePath = THUMBNAILS_BUCKET_ID + "/" + uploadedFileId;
-                                    
-                                    Log.d(TAG, "Thumbnail upload successful - File ID: " + uploadedFileId);
-                                    Log.d(TAG, "Thumbnail download URL: " + downloadUrl);
-                                    
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                                        callback.onSuccess(downloadUrl, storagePath);
-                                    });
-                                } else {
-                                    Throwable exception = result.exceptionOrNull();
-                                    Log.e(TAG, "Thumbnail upload failed - Filename: " + filename + ", Error: " + (exception != null ? exception.getMessage() : "Unknown error"), exception);
-                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                                        callback.onError("Thumbnail upload failed: " + (exception != null ? exception.getMessage() : "Unknown error"));
-                                    });
-                                }
-                            }
+                    String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+                    URL url = new URL(uploadUrl);
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("POST");
+                    connection.setDoOutput(true);
+                    connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+                    connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+                    connection.setRequestProperty("X-Appwrite-Key", API_KEY);
+                    
+                    OutputStream outputStream = connection.getOutputStream();
+                    java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.OutputStreamWriter(outputStream, "UTF-8"), true);
+                    
+                    writer.append("--" + boundary).append("\r\n");
+                    writer.append("Content-Disposition: form-data; name=\"fileId\"").append("\r\n");
+                    writer.append("\r\n");
+                    writer.append(fileId).append("\r\n");
+                    writer.flush();
+                    
+                    writer.append("--" + boundary).append("\r\n");
+                    writer.append("Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"").append("\r\n");
+                    writer.append("Content-Type: application/octet-stream").append("\r\n");
+                    writer.append("\r\n");
+                    writer.flush();
+                    
+                    FileInputStream fileInputStream = new FileInputStream(file);
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, bytesRead);
+                    }
+                    outputStream.flush();
+                    fileInputStream.close();
+                    
+                    writer.append("\r\n");
+                    writer.append("--" + boundary + "--").append("\r\n");
+                    writer.flush();
+                    writer.close();
+                    
+                    int responseCode = connection.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_CREATED || responseCode == HttpURLConnection.HTTP_OK) {
+                        InputStream responseStream = connection.getInputStream();
+                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(responseStream));
+                        StringBuilder response = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            response.append(line);
                         }
-                    );
+                        reader.close();
+                        
+                        String uploadedFileId = fileId;
+                        String downloadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
+                        String storagePath = THUMBNAILS_BUCKET_ID + "/" + uploadedFileId;
+                        
+                        Log.d(TAG, "Thumbnail upload successful - File ID: " + uploadedFileId);
+                        Log.d(TAG, "Thumbnail download URL: " + downloadUrl);
+                        
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            callback.onSuccess(downloadUrl, storagePath);
+                        });
+                    } else {
+                        InputStream errorStream = connection.getErrorStream();
+                        String errorMessage = "HTTP error code: " + responseCode;
+                        if (errorStream != null) {
+                            java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
+                            StringBuilder error = new StringBuilder();
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                error.append(line);
+                            }
+                            errorMessage = error.toString();
+                            reader.close();
+                        }
+                        throw new Exception(errorMessage);
+                    }
+                    connection.disconnect();
                 } catch (Exception e) {
                     Log.e(TAG, "Error during thumbnail upload - Filename: " + filename, e);
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
