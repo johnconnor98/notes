@@ -49,12 +49,12 @@ public class AppwriteDatabaseService implements DatabaseService {
                            DatabaseCallback<List<NoteDto>> callback) {
         CompletableFuture.runAsync(() -> {
             try {
-                // Build base URL
-                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents?project=" + PROJECT_ID;
-                Log.d(TAG, "Database URL: " + url);
+                // Build base URL without query parameters first
+                String baseUrl = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
+                Log.d(TAG, "Base URL: " + baseUrl);
                 
                 // Build queries array - Appwrite REST API format
-                // Format: equal("field","value") for exact match
+                // Format: equal("field","value") for exact match (same as Query.equal() returns)
                 List<String> queryStrings = new ArrayList<>();
                 if (subject != null && !subject.isEmpty()) {
                     queryStrings.add("equal(\"subject\",\"" + escapeJsonString(subject) + "\")");
@@ -69,34 +69,47 @@ public class AppwriteDatabaseService implements DatabaseService {
                     queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                // Appwrite REST API: listDocuments uses GET, queries are URL parameters
-                // Based on Appwrite SDK examples: queries are passed as List<String>
-                // For REST API, this translates to: queries=["equal(\"field\",\"value\")"]
-                // The challenge: URL encoding breaks the array brackets
-                // Solution: Try passing each query as a separate 'queries' parameter
-                // Some REST APIs accept arrays as repeated parameters: queries=val1&queries=val2
-                if (!queryStrings.isEmpty()) {
-                    // Try approach: Pass each query as a separate queries parameter
-                    // Format: queries=equal("field","value")&queries=equal("field2","value2")
-                    StringBuilder queryParams = new StringBuilder();
-                    for (String query : queryStrings) {
-                        if (queryParams.length() > 0) {
-                            queryParams.append("&");
-                        }
+                // Build JSON array of query strings (as Appwrite SDK expects)
+                // Format: ["equal(\"field\",\"value\")", "equal(\"field2\",\"value2\")"]
+                JsonArray queriesArray = new JsonArray();
+                for (String query : queryStrings) {
+                    queriesArray.add(query);
+                }
+                String queriesJson = gson.toJson(queriesArray);
+                Log.d(TAG, "Queries JSON: " + queriesJson);
+                
+                // Build URL with queries parameter using java.net.URL for proper encoding
+                // Appwrite REST API expects: queries=["equal(\"field\",\"value\")"] as URL parameter
+                String finalUrl;
+                try {
+                    // Build query string
+                    StringBuilder queryBuilder = new StringBuilder("project=" + PROJECT_ID);
+                    if (!queryStrings.isEmpty()) {
+                        // Append queries parameter - URLEncoder will encode it properly
+                        String encodedQueries = URLEncoder.encode(queriesJson, "UTF-8");
+                        queryBuilder.append("&queries=").append(encodedQueries);
+                        Log.d(TAG, "Queries JSON: " + queriesJson);
+                        Log.d(TAG, "Encoded queries: " + encodedQueries);
+                    }
+                    
+                    // Use URL constructor to ensure proper encoding
+                    URL urlObj = new URL(baseUrl + "?" + queryBuilder.toString());
+                    finalUrl = urlObj.toString();
+                    Log.d(TAG, "Final URL: " + finalUrl);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error building URL", e);
+                    // Fallback
+                    finalUrl = baseUrl + "?project=" + PROJECT_ID;
+                    if (!queryStrings.isEmpty()) {
                         try {
-                            // URL encode each query string
-                            String encoded = URLEncoder.encode(query, "UTF-8");
-                            queryParams.append("queries=").append(encoded);
-                        } catch (java.io.UnsupportedEncodingException e) {
-                            Log.e(TAG, "Error encoding query", e);
-                            queryParams.append("queries=").append(query);
+                            finalUrl += "&queries=" + URLEncoder.encode(queriesJson, "UTF-8");
+                        } catch (java.io.UnsupportedEncodingException ex) {
+                            finalUrl += "&queries=" + queriesJson;
                         }
                     }
-                    url += "&" + queryParams.toString();
-                    Log.d(TAG, "URL with repeated queries parameters: " + url);
                 }
                 
-                HttpURLConnection connection = createConnection(url, "GET");
+                HttpURLConnection connection = createConnection(finalUrl, "GET");
                 connection.connect();
                 
                 int responseCode = connection.getResponseCode();
