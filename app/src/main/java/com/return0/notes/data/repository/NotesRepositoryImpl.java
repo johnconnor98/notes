@@ -39,21 +39,40 @@ public class NotesRepositoryImpl implements NotesRepository {
 
     @Override
     public void loadNotes(LoadNotesCallback callback) {
+        Log.d(TAG, "=== LOADING ALL NOTES ===");
         apiService.getNotes(null, null, null, null).enqueue(new Callback<List<NoteDto>>() {
             @Override
             public void onResponse(Call<List<NoteDto>> call, Response<List<NoteDto>> response) {
+                Log.d(TAG, "Load Notes - Response code: " + response.code());
+                Log.d(TAG, "Load Notes - Response successful: " + response.isSuccessful());
+                
                 if (response.isSuccessful() && response.body() != null) {
                     List<NoteDto> noteDtos = response.body();
+                    Log.d(TAG, "Load Notes - Number of notes: " + noteDtos.size());
+                    
+                    // Log raw response
+                    try {
+                        okhttp3.Response rawResponse = response.raw();
+                        if (rawResponse != null && rawResponse.body() != null) {
+                            String responseBody = rawResponse.peekBody(1024 * 1024).string();
+                            Log.d(TAG, "Load Notes - Raw JSON: " + responseBody);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading raw response: " + e.getMessage());
+                    }
+                    
                     logAllDatabaseData(noteDtos, "Load Notes");
                     List<Note> notes = NoteMapper.toDomainList(noteDtos);
                     callback.onSuccess(notes);
                 } else {
+                    Log.e(TAG, "Load Notes failed: " + response.message());
                     callback.onError("Failed to load notes: " + response.message());
                 }
             }
 
             @Override
             public void onFailure(Call<List<NoteDto>> call, Throwable t) {
+                Log.e(TAG, "Load Notes network error: " + t.getMessage(), t);
                 callback.onError("Network error: " + t.getMessage());
             }
         });
@@ -76,13 +95,40 @@ public class NotesRepositoryImpl implements NotesRepository {
         apiService.getNotes(subject, semester, branch, college).enqueue(new Callback<List<NoteDto>>() {
             @Override
             public void onResponse(Call<List<NoteDto>> call, Response<List<NoteDto>> response) {
+                Log.d(TAG, "=== API RESPONSE RECEIVED ===");
+                Log.d(TAG, "Response code: " + response.code());
+                Log.d(TAG, "Response successful: " + response.isSuccessful());
+                Log.d(TAG, "Response body is null: " + (response.body() == null));
+                
                 if (response.isSuccessful() && response.body() != null) {
                     List<NoteDto> noteDtos = response.body();
+                    Log.d(TAG, "Number of notes received: " + noteDtos.size());
+                    
+                    // Log raw response body
+                    try {
+                        okhttp3.Response rawResponse = response.raw();
+                        if (rawResponse != null && rawResponse.body() != null) {
+                            String responseBody = rawResponse.peekBody(1024 * 1024).string();
+                            Log.d(TAG, "Raw JSON response (first 1MB): " + responseBody);
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error reading raw response: " + e.getMessage());
+                    }
+                    
                     logAllDatabaseData(noteDtos, "Search Results");
                     List<Note> notes = NoteMapper.toDomainList(noteDtos);
+                    Log.d(TAG, "Converted to domain models: " + notes.size());
                     callback.onSuccess(notes);
                 } else {
-                    Log.e(TAG, "Search failed: " + response.message());
+                    Log.e(TAG, "Search failed - Code: " + response.code() + ", Message: " + response.message());
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorBody = response.errorBody().string();
+                            Log.e(TAG, "Error body: " + errorBody);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error reading error body: " + e.getMessage());
+                        }
+                    }
                     callback.onError("Search failed: " + response.message());
                 }
             }
@@ -102,22 +148,28 @@ public class NotesRepositoryImpl implements NotesRepository {
         Log.d(TAG, "Total records: " + notes.size());
         Log.d(TAG, "----------------------------------------------------------------------------------");
         
+        if (notes.isEmpty()) {
+            Log.w(TAG, "⚠️ NO RECORDS FOUND IN DATABASE!");
+            Log.d(TAG, "==================================================================================");
+            return;
+        }
+        
         for (int i = 0; i < notes.size(); i++) {
             NoteDto note = notes.get(i);
             Log.d(TAG, "Record #" + (i + 1) + ":");
-            Log.d(TAG, "  ID: " + note.getId());
-            Log.d(TAG, "  Title: " + note.getTitle());
-            Log.d(TAG, "  Filename: " + note.getFilename());
-            Log.d(TAG, "  Upload Date: " + note.getUploadDate());
+            Log.d(TAG, "  ID: " + (note.getId() != null ? note.getId() : "NULL"));
+            Log.d(TAG, "  Title: " + (note.getTitle() != null ? note.getTitle() : "NULL"));
+            Log.d(TAG, "  Filename: " + (note.getFilename() != null ? note.getFilename() : "NULL"));
+            Log.d(TAG, "  Upload Date: " + (note.getUploadDate() != null ? note.getUploadDate() : "NULL"));
             Log.d(TAG, "  File Size: " + note.getFileSize());
-            Log.d(TAG, "  Subject: " + (note.getSubject() != null ? note.getSubject() : "N/A"));
-            Log.d(TAG, "  Semester: " + (note.getSemester() != null ? note.getSemester() : "N/A"));
-            Log.d(TAG, "  Branch: " + (note.getBranch() != null ? note.getBranch() : "N/A"));
-            Log.d(TAG, "  College: " + (note.getCollege() != null ? note.getCollege() : "N/A"));
-            Log.d(TAG, "  Thumbnail: " + (note.getThumbnail() != null ? note.getThumbnail() : "N/A"));
-            Log.d(TAG, "  File URL: " + (note.getFileUrl() != null ? note.getFileUrl() : "N/A"));
-            Log.d(TAG, "  File Path: " + (note.getFilePath() != null ? note.getFilePath() : "N/A"));
-            Log.d(TAG, "  Thumbnail URL: " + (note.getThumbnailUrl() != null ? note.getThumbnailUrl() : "N/A"));
+            Log.d(TAG, "  Subject: " + (note.getSubject() != null && !note.getSubject().isEmpty() ? note.getSubject() : "NULL/EMPTY"));
+            Log.d(TAG, "  Semester: " + (note.getSemester() != null && !note.getSemester().isEmpty() ? note.getSemester() : "NULL/EMPTY"));
+            Log.d(TAG, "  Branch: " + (note.getBranch() != null && !note.getBranch().isEmpty() ? note.getBranch() : "NULL/EMPTY"));
+            Log.d(TAG, "  College: " + (note.getCollege() != null && !note.getCollege().isEmpty() ? note.getCollege() : "NULL/EMPTY"));
+            Log.d(TAG, "  Thumbnail: " + (note.getThumbnail() != null ? note.getThumbnail() : "NULL"));
+            Log.d(TAG, "  File URL: " + (note.getFileUrl() != null && !note.getFileUrl().isEmpty() ? note.getFileUrl() : "NULL/EMPTY"));
+            Log.d(TAG, "  File Path: " + (note.getFilePath() != null && !note.getFilePath().isEmpty() ? note.getFilePath() : "NULL/EMPTY"));
+            Log.d(TAG, "  Thumbnail URL: " + (note.getThumbnailUrl() != null && !note.getThumbnailUrl().isEmpty() ? note.getThumbnailUrl() : "NULL/EMPTY"));
             Log.d(TAG, "----------------------------------------------------------------------------------");
         }
         
