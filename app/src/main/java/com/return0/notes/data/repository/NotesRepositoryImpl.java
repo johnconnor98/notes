@@ -46,6 +46,16 @@ public class NotesRepositoryImpl implements NotesRepository {
         this.context = context.getApplicationContext();
         this.storageService = AppwriteStorageService.getInstance(context);
     }
+    
+    // Helper method to escape JSON string values
+    private String escapeJsonString(String input) {
+        if (input == null) return "";
+        return input.replace("\\", "\\\\")
+                   .replace("\"", "\\\"")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
+    }
 
     @Override
     public void loadNotes(LoadNotesCallback callback) {
@@ -73,28 +83,45 @@ public class NotesRepositoryImpl implements NotesRepository {
     private void loadNotesFromAppwrite(String subject, String semester, String branch, String college, LoadNotesCallback callback) {
         CompletableFuture.runAsync(() -> {
             try {
-                // Build query parameters
-                List<String> queries = new ArrayList<>();
+                // Build query parameters - use search for partial matching or equal for exact match
+                // For better search results, we'll use search() which does partial matching
+                List<String> queryStrings = new ArrayList<>();
                 if (subject != null && !subject.isEmpty()) {
-                    queries.add("equal(\"subject\",\"" + subject + "\")");
+                    // Use search for partial matching (case-insensitive)
+                    queryStrings.add("search(\"subject\",\"" + escapeJsonString(subject) + "\")");
                 }
                 if (semester != null && !semester.isEmpty()) {
-                    queries.add("equal(\"semester\",\"" + semester + "\")");
+                    queryStrings.add("search(\"semester\",\"" + escapeJsonString(semester) + "\")");
                 }
                 if (branch != null && !branch.isEmpty()) {
-                    queries.add("equal(\"branch\",\"" + branch + "\")");
+                    queryStrings.add("search(\"branch\",\"" + escapeJsonString(branch) + "\")");
                 }
                 if (college != null && !college.isEmpty()) {
-                    queries.add("equal(\"college\",\"" + college + "\")");
+                    queryStrings.add("search(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                String queryParam = String.join(",", queries);
                 String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
                 boolean hasQuery = false;
-                if (!queryParam.isEmpty()) {
-                    url += "?queries=[" + queryParam + "]";
+                
+                if (!queryStrings.isEmpty()) {
+                    // Appwrite expects queries as URL-encoded JSON array
+                    // Format: queries=["search(\"field\",\"value\")"]
+                    // Each query string should be a JSON string in the array
+                    StringBuilder queriesJson = new StringBuilder("[");
+                    for (int i = 0; i < queryStrings.size(); i++) {
+                        if (i > 0) queriesJson.append(",");
+                        // Each query needs to be a JSON string (wrapped in quotes)
+                        queriesJson.append("\"").append(queryStrings.get(i)).append("\"");
+                    }
+                    queriesJson.append("]");
+                    
+                    String encodedQueries = java.net.URLEncoder.encode(queriesJson.toString(), "UTF-8");
+                    url += "?queries=" + encodedQueries;
                     hasQuery = true;
+                    Log.d(TAG, "Query JSON: " + queriesJson.toString());
+                    Log.d(TAG, "Encoded queries: " + encodedQueries);
                 }
+                
                 // Add project parameter - use ? if no query params, & if query params exist
                 url += (hasQuery ? "&" : "?") + "project=" + PROJECT_ID;
                 
