@@ -31,6 +31,7 @@ public class AppwriteStorageService implements StorageService {
     private Client client;
     private Account account;
     private AtomicBoolean sessionCreated = new AtomicBoolean(false);
+    private CookieManager cookieManager;
     
     private AppwriteStorageService(Context context) {
         this.context = context.getApplicationContext();
@@ -41,7 +42,7 @@ public class AppwriteStorageService implements StorageService {
         account = new Account(client);
         
         // Set up cookie manager to handle session cookies
-        CookieManager cookieManager = new CookieManager();
+        cookieManager = new CookieManager();
         cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
         CookieHandler.setDefault(cookieManager);
         
