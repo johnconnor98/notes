@@ -49,90 +49,193 @@ public class AppwriteDatabaseService implements DatabaseService {
                            DatabaseCallback<List<NoteDto>> callback) {
         CompletableFuture.runAsync(() -> {
             try {
+                Log.d(TAG, "=== SEARCH NOTES DEBUG ===");
+                Log.d(TAG, "Input parameters:");
+                Log.d(TAG, "  Subject: " + (subject != null ? subject : "null"));
+                Log.d(TAG, "  Semester: " + (semester != null ? semester : "null"));
+                Log.d(TAG, "  Branch: " + (branch != null ? branch : "null"));
+                Log.d(TAG, "  College: " + (college != null ? college : "null"));
+                
                 // Build base URL without query parameters first
                 String baseUrl = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
                 Log.d(TAG, "Base URL: " + baseUrl);
                 
-                // Build queries array - Appwrite REST API format
-                // Format: equal("field","value") for exact match (same as Query.equal() returns)
+                // Build queries array using Appwrite Query class to ensure correct format
+                // Query.equal() returns the exact string format Appwrite expects
                 List<String> queryStrings = new ArrayList<>();
-                if (subject != null && !subject.isEmpty()) {
-                    queryStrings.add("equal(\"subject\",\"" + escapeJsonString(subject) + "\")");
-                }
-                if (semester != null && !semester.isEmpty()) {
-                    queryStrings.add("equal(\"semester\",\"" + escapeJsonString(semester) + "\")");
-                }
-                if (branch != null && !branch.isEmpty()) {
-                    queryStrings.add("equal(\"branch\",\"" + escapeJsonString(branch) + "\")");
-                }
-                if (college != null && !college.isEmpty()) {
-                    queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
+                try {
+                    Log.d(TAG, "Generating queries using Appwrite Query class...");
+                    // Use Appwrite SDK Query class to generate properly formatted query strings
+                    // This ensures the format matches exactly what Appwrite expects
+                    if (subject != null && !subject.isEmpty()) {
+                        String query = io.appwrite.Query.equal("subject", java.util.Collections.singletonList(subject));
+                        queryStrings.add(query);
+                        Log.d(TAG, "  ✓ Subject query generated: " + query);
+                        Log.d(TAG, "    Query length: " + query.length() + " chars");
+                    }
+                    if (semester != null && !semester.isEmpty()) {
+                        String query = io.appwrite.Query.equal("semester", java.util.Collections.singletonList(semester));
+                        queryStrings.add(query);
+                        Log.d(TAG, "  ✓ Semester query generated: " + query);
+                        Log.d(TAG, "    Query length: " + query.length() + " chars");
+                    }
+                    if (branch != null && !branch.isEmpty()) {
+                        String query = io.appwrite.Query.equal("branch", java.util.Collections.singletonList(branch));
+                        queryStrings.add(query);
+                        Log.d(TAG, "  ✓ Branch query generated: " + query);
+                        Log.d(TAG, "    Query length: " + query.length() + " chars");
+                    }
+                    if (college != null && !college.isEmpty()) {
+                        String query = io.appwrite.Query.equal("college", java.util.Collections.singletonList(college));
+                        queryStrings.add(query);
+                        Log.d(TAG, "  ✓ College query generated: " + query);
+                        Log.d(TAG, "    Query length: " + query.length() + " chars");
+                    }
+                    Log.d(TAG, "Total queries generated: " + queryStrings.size());
+                } catch (Exception e) {
+                    Log.e(TAG, "ERROR: Failed to generate queries with Query class", e);
+                    Log.e(TAG, "Exception type: " + e.getClass().getName());
+                    Log.e(TAG, "Exception message: " + e.getMessage());
+                    if (e.getCause() != null) {
+                        Log.e(TAG, "Caused by: " + e.getCause().getMessage());
+                    }
+                    // Fallback to manual format if Query class fails
+                    Log.d(TAG, "Falling back to manual query format...");
+                    if (subject != null && !subject.isEmpty()) {
+                        String manualQuery = "equal(\"subject\",\"" + escapeJsonString(subject) + "\")";
+                        queryStrings.add(manualQuery);
+                        Log.d(TAG, "  Manual subject query: " + manualQuery);
+                    }
+                    if (semester != null && !semester.isEmpty()) {
+                        String manualQuery = "equal(\"semester\",\"" + escapeJsonString(semester) + "\")";
+                        queryStrings.add(manualQuery);
+                        Log.d(TAG, "  Manual semester query: " + manualQuery);
+                    }
+                    if (branch != null && !branch.isEmpty()) {
+                        String manualQuery = "equal(\"branch\",\"" + escapeJsonString(branch) + "\")";
+                        queryStrings.add(manualQuery);
+                        Log.d(TAG, "  Manual branch query: " + manualQuery);
+                    }
+                    if (college != null && !college.isEmpty()) {
+                        String manualQuery = "equal(\"college\",\"" + escapeJsonString(college) + "\")";
+                        queryStrings.add(manualQuery);
+                        Log.d(TAG, "  Manual college query: " + manualQuery);
+                    }
                 }
                 
                 // Build JSON array of query strings (as Appwrite SDK expects)
                 // Format: ["equal(\"field\",\"value\")", "equal(\"field2\",\"value2\")"]
+                Log.d(TAG, "Building JSON array from query strings...");
                 JsonArray queriesArray = new JsonArray();
-                for (String query : queryStrings) {
+                for (int i = 0; i < queryStrings.size(); i++) {
+                    String query = queryStrings.get(i);
                     queriesArray.add(query);
+                    Log.d(TAG, "  Query[" + i + "]: " + query);
                 }
                 String queriesJson = gson.toJson(queriesArray);
-                Log.d(TAG, "Queries JSON: " + queriesJson);
+                Log.d(TAG, "Queries JSON array: " + queriesJson);
+                Log.d(TAG, "Queries JSON length: " + queriesJson.length() + " chars");
                 
                 // Build URL with queries parameter using java.net.URL for proper encoding
                 // Appwrite REST API expects: queries=["equal(\"field\",\"value\")"] as URL parameter
                 String finalUrl;
                 try {
+                    Log.d(TAG, "Building final URL...");
                     // Build query string
                     StringBuilder queryBuilder = new StringBuilder("project=" + PROJECT_ID);
+                    Log.d(TAG, "  Base query string: " + queryBuilder.toString());
+                    
                     if (!queryStrings.isEmpty()) {
                         // Append queries parameter - URLEncoder will encode it properly
                         String encodedQueries = URLEncoder.encode(queriesJson, "UTF-8");
                         queryBuilder.append("&queries=").append(encodedQueries);
-                        Log.d(TAG, "Queries JSON: " + queriesJson);
-                        Log.d(TAG, "Encoded queries: " + encodedQueries);
+                        Log.d(TAG, "  Queries JSON (before encoding): " + queriesJson);
+                        Log.d(TAG, "  Queries JSON (after encoding): " + encodedQueries);
+                        Log.d(TAG, "  Encoded length: " + encodedQueries.length() + " chars");
+                        
+                        // Check if brackets are encoded
+                        boolean bracketsEncoded = encodedQueries.contains("%5B") || encodedQueries.contains("%5D");
+                        Log.d(TAG, "  Brackets encoded: " + bracketsEncoded);
+                        if (bracketsEncoded) {
+                            Log.d(TAG, "  WARNING: Brackets [ ] are encoded as %5B and %5D");
+                        }
+                    } else {
+                        Log.d(TAG, "  No queries to add (empty query list)");
                     }
                     
+                    String queryString = queryBuilder.toString();
+                    Log.d(TAG, "  Full query string: " + queryString);
+                    
                     // Use URL constructor to ensure proper encoding
-                    URL urlObj = new URL(baseUrl + "?" + queryBuilder.toString());
+                    String urlWithQuery = baseUrl + "?" + queryString;
+                    Log.d(TAG, "  URL before URL() constructor: " + urlWithQuery);
+                    
+                    URL urlObj = new URL(urlWithQuery);
                     finalUrl = urlObj.toString();
-                    Log.d(TAG, "Final URL: " + finalUrl);
+                    Log.d(TAG, "  Final URL (after URL() constructor): " + finalUrl);
+                    
+                    // Compare URLs
+                    if (!urlWithQuery.equals(finalUrl)) {
+                        Log.d(TAG, "  NOTE: URL changed after URL() constructor");
+                        Log.d(TAG, "    Before: " + urlWithQuery);
+                        Log.d(TAG, "    After:  " + finalUrl);
+                    }
                 } catch (Exception e) {
-                    Log.e(TAG, "Error building URL", e);
+                    Log.e(TAG, "ERROR: Failed to build URL", e);
+                    Log.e(TAG, "Exception type: " + e.getClass().getName());
+                    Log.e(TAG, "Exception message: " + e.getMessage());
                     // Fallback
+                    Log.d(TAG, "Using fallback URL construction...");
                     finalUrl = baseUrl + "?project=" + PROJECT_ID;
                     if (!queryStrings.isEmpty()) {
                         try {
-                            finalUrl += "&queries=" + URLEncoder.encode(queriesJson, "UTF-8");
+                            String encoded = URLEncoder.encode(queriesJson, "UTF-8");
+                            finalUrl += "&queries=" + encoded;
+                            Log.d(TAG, "  Fallback URL with encoded queries: " + finalUrl);
                         } catch (java.io.UnsupportedEncodingException ex) {
                             finalUrl += "&queries=" + queriesJson;
+                            Log.d(TAG, "  Fallback URL with unencoded queries: " + finalUrl);
                         }
                     }
                 }
                 
+                Log.d(TAG, "Creating HTTP connection...");
                 HttpURLConnection connection = createConnection(finalUrl, "GET");
+                Log.d(TAG, "Connecting to: " + finalUrl);
                 connection.connect();
                 
                 int responseCode = connection.getResponseCode();
+                Log.d(TAG, "=== HTTP RESPONSE ===");
                 Log.d(TAG, "Response Code: " + responseCode);
                 
                 if (responseCode == HttpURLConnection.HTTP_OK) {
+                    Log.d(TAG, "✓ Request successful (200 OK)");
                     String jsonResponse = readResponse(connection);
-                    Log.d(TAG, "Raw JSON response: " + jsonResponse);
+                    Log.d(TAG, "Response body length: " + jsonResponse.length() + " chars");
+                    Log.d(TAG, "Raw JSON response (first 500 chars): " + 
+                        (jsonResponse.length() > 500 ? jsonResponse.substring(0, 500) + "..." : jsonResponse));
                     
                     List<NoteDto> notes = parseNotesResponse(jsonResponse);
-                    Log.d(TAG, "Parsed " + notes.size() + " documents");
+                    Log.d(TAG, "✓ Parsed " + notes.size() + " documents successfully");
                     
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                         callback.onSuccess(notes);
                     });
                 } else {
+                    Log.e(TAG, "✗ Request failed with code: " + responseCode);
                     String error = readErrorResponse(connection, responseCode);
+                    Log.e(TAG, "Error response body: " + error);
                     Log.e(TAG, "Database error: " + error);
+                    
+                    // Log the exact URL that failed
+                    Log.e(TAG, "Failed URL: " + finalUrl);
+                    
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                         callback.onError(error);
                     });
                 }
                 connection.disconnect();
+                Log.d(TAG, "=== END SEARCH NOTES DEBUG ===");
             } catch (Exception e) {
                 Log.e(TAG, "Error loading notes", e);
                 new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
