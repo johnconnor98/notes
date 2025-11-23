@@ -29,6 +29,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
 
 public class NotesRepositoryImpl implements NotesRepository {
     private static final String TAG = "NotesRepository";
@@ -384,33 +385,83 @@ public class NotesRepositoryImpl implements NotesRepository {
 
     @Override
     public void downloadNote(String noteId, String filename, DownloadCallback callback) {
-        apiService.downloadNote(noteId).enqueue(new Callback<ResponseBody>() {
-            @Override
-            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    String contentType = response.headers().get("Content-Type");
-                    if (contentType != null && contentType.contains("application/json")) {
-                        try {
-                            String jsonResponse = response.body().string();
-                            if (jsonResponse.contains("file_path") || jsonResponse.contains("appwrite") || jsonResponse.contains("storage")) {
-                                downloadFromStorage(jsonResponse, filename, callback);
-                            } else {
-                                saveFile(response.body(), filename, callback);
+        Log.d(TAG, "Downloading note from Appwrite - Note ID: " + noteId);
+        
+        // First, get the document from Appwrite Database to get filePath
+        CompletableFuture.runAsync(() -> {
+            try {
+                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents/" + noteId + "?project=" + PROJECT_ID;
+                
+                java.net.URL appwriteUrl = new java.net.URL(url);
+                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+                connection.connect();
+                
+                int responseCode = connection.getResponseCode();
+                if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                    InputStream inputStream = connection.getInputStream();
+                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    reader.close();
+                    inputStream.close();
+                    
+                    String jsonResponse = response.toString();
+                    Log.d(TAG, "Document retrieved: " + jsonResponse);
+                    
+                    // Parse document to get filePath
+                    JsonObject doc = JsonParser.parseString(jsonResponse).getAsJsonObject();
+                    String filePath = doc.has("filePath") ? doc.get("filePath").getAsString() : null;
+                    
+                    if (filePath != null && !filePath.isEmpty()) {
+                        // Download from Appwrite Storage
+                        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                        storageService.downloadFile(filePath, filename, downloadsDir, new StorageService.DownloadCallback() {
+                            @Override
+                            public void onSuccess(String localFilePath) {
+                                callback.onSuccess(localFilePath);
                             }
-                        } catch (Exception e) {
-                            callback.onError("Error parsing response: " + e.getMessage());
-                        }
+
+                            @Override
+                            public void onProgress(double progress) {}
+
+                            @Override
+                            public void onError(String error) {
+                                callback.onError("Download failed: " + error);
+                            }
+                        });
                     } else {
-                        saveFile(response.body(), filename, callback);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            callback.onError("File path not found in document");
+                        });
                     }
                 } else {
-                    callback.onError("Download failed: " + response.message());
+                    InputStream errorStream = connection.getErrorStream();
+                    String errorMessage = "HTTP error code: " + responseCode;
+                    if (errorStream != null) {
+                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
+                        StringBuilder error = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            error.append(line);
+                        }
+                        errorMessage = error.toString();
+                        reader.close();
+                    }
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        callback.onError("Failed to get document: " + errorMessage);
+                    });
                 }
-            }
-
-            @Override
-            public void onFailure(Call<ResponseBody> call, Throwable t) {
-                callback.onError("Network error: " + t.getMessage());
+                connection.disconnect();
+            } catch (Exception e) {
+                Log.e(TAG, "Error downloading note", e);
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    callback.onError("Error: " + e.getMessage());
+                });
             }
         });
     }
