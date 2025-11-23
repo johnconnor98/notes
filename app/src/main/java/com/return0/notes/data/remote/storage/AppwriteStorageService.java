@@ -21,8 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class AppwriteStorageService implements StorageService {
     private static final String TAG = "AppwriteStorageService";
     private static AppwriteStorageService instance;
-    private static final String NOTES_BUCKET_ID = "notes";
-    private static final String THUMBNAILS_BUCKET_ID = "thumbnails";
+    private static final String NOTES_BUCKET_ID = "6922973200086a9b313e";
+    private static final String THUMBNAILS_BUCKET_ID = "6922973200086a9b313e"; // Using same bucket for now, update if you have a separate thumbnails bucket
     
     private static final String ENDPOINT = "https://fra.cloud.appwrite.io/v1";
     private static final String PROJECT_ID = "6922970a001ab5faef56";
