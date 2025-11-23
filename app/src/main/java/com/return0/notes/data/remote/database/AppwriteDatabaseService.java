@@ -70,33 +70,29 @@ public class AppwriteDatabaseService implements DatabaseService {
                     queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                HttpURLConnection connection;
+                // Build query parameters - Appwrite REST API expects queries as URL parameter
+                // Format: queries=["equal(\"field\",\"value\")"] as JSON array string
                 if (!queryStrings.isEmpty()) {
-                    // For queries, use POST method with queries in request body
-                    // Appwrite REST API may require POST for complex queries
-                    connection = createConnection(url, "POST");
-                    connection.setRequestProperty("Content-Type", "application/json");
-                    connection.setDoOutput(true);
-                    
-                    // Build request body with queries array
-                    JsonObject requestBody = new JsonObject();
+                    // Create JSON array of query strings
                     JsonArray queriesArray = new JsonArray();
                     for (String query : queryStrings) {
                         queriesArray.add(query);
                     }
-                    requestBody.add("queries", queriesArray);
+                    String queriesJson = gson.toJson(queriesArray);
+                    Log.d(TAG, "Queries JSON: " + queriesJson);
                     
-                    String jsonBody = gson.toJson(requestBody);
-                    Log.d(TAG, "Request body: " + jsonBody);
-                    
-                    OutputStream outputStream = connection.getOutputStream();
-                    outputStream.write(jsonBody.getBytes("UTF-8"));
-                    outputStream.flush();
-                    outputStream.close();
-                } else {
-                    // No queries, use simple GET
-                    connection = createConnection(url, "GET");
+                    try {
+                        // URL encode the JSON array
+                        String encoded = URLEncoder.encode(queriesJson, "UTF-8");
+                        url += "&queries=" + encoded;
+                        Log.d(TAG, "Encoded queries: " + encoded);
+                    } catch (java.io.UnsupportedEncodingException e) {
+                        Log.e(TAG, "Error encoding queries", e);
+                        url += "&queries=" + queriesJson;
+                    }
                 }
+                
+                HttpURLConnection connection = createConnection(url, "GET");
                 connection.connect();
                 
                 int responseCode = connection.getResponseCode();
