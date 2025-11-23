@@ -286,9 +286,15 @@ public class NotesRepositoryImpl implements NotesRepository {
         CompletableFuture.runAsync(() -> {
             try {
                 String documentId = java.util.UUID.randomUUID().toString();
-                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents?project=" + PROJECT_ID;
+                // Appwrite Database API format: /v1/databases/{databaseId}/collections/{collectionId}/documents
+                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
                 
-                Log.d(TAG, "Creating document in Appwrite Database: " + url);
+                Log.d(TAG, "Creating document in Appwrite Database");
+                Log.d(TAG, "URL: " + url);
+                Log.d(TAG, "Database ID: " + DATABASE_ID);
+                Log.d(TAG, "Collection ID: " + COLLECTION_ID);
+                Log.d(TAG, "Project ID: " + PROJECT_ID);
+                Log.d(TAG, "Document ID: " + documentId);
                 
                 // Build data object
                 // Note: Appwrite automatically provides "$id" as the document ID
@@ -306,14 +312,19 @@ public class NotesRepositoryImpl implements NotesRepository {
                 String dataJson = gson.toJson(data);
                 Log.d(TAG, "Document data JSON: " + dataJson);
                 
+                // Appwrite expects: documentId and data as form fields, project as query param or header
                 String formData = "documentId=" + java.net.URLEncoder.encode(documentId, "UTF-8") + 
                                  "&data=" + java.net.URLEncoder.encode(dataJson, "UTF-8");
                 
-                java.net.URL appwriteUrl = new java.net.URL(url);
+                // Add project as query parameter
+                String urlWithProject = url + "?project=" + PROJECT_ID;
+                
+                java.net.URL appwriteUrl = new java.net.URL(urlWithProject);
                 java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
                 connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+                connection.setRequestProperty("X-Appwrite-Response-Format", "1.0.0");
                 connection.setDoOutput(true);
                 
                 OutputStream outputStream = connection.getOutputStream();
