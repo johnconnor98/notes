@@ -56,5 +56,9 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-    implementation("io.appwrite:sdk-for-android:5.0.0")
+    
+    // Appwrite SDK - exclude okhttp-bom to avoid conflicts
+    implementation("io.appwrite:sdk-for-android:4.0.0") {
+        exclude(group = "com.squareup.okhttp3", module = "okhttp-bom")
+    }
 }
