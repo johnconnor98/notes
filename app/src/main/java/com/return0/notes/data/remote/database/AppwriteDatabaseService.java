@@ -69,35 +69,34 @@ public class AppwriteDatabaseService implements DatabaseService {
                     queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                HttpURLConnection connection;
-                
+                // Appwrite REST API: listDocuments uses GET, queries are URL parameters
+                // Based on Appwrite SDK examples: queries are passed as List<String>
+                // For REST API, this translates to: queries=["equal(\"field\",\"value\")"]
+                // The challenge: URL encoding breaks the array brackets
+                // Solution: Try passing each query as a separate 'queries' parameter
+                // Some REST APIs accept arrays as repeated parameters: queries=val1&queries=val2
                 if (!queryStrings.isEmpty()) {
-                    // Use POST method with queries in request body (JSON format)
-                    // This is more reliable than URL-encoded query parameters
-                    connection = createConnection(url, "POST");
-                    connection.setRequestProperty("Content-Type", "application/json");
-                    connection.setDoOutput(true);
-                    
-                    // Build JSON request body with queries array
-                    JsonObject requestBody = new JsonObject();
-                    JsonArray queriesArray = new JsonArray();
+                    // Try approach: Pass each query as a separate queries parameter
+                    // Format: queries=equal("field","value")&queries=equal("field2","value2")
+                    StringBuilder queryParams = new StringBuilder();
                     for (String query : queryStrings) {
-                        queriesArray.add(query);
+                        if (queryParams.length() > 0) {
+                            queryParams.append("&");
+                        }
+                        try {
+                            // URL encode each query string
+                            String encoded = URLEncoder.encode(query, "UTF-8");
+                            queryParams.append("queries=").append(encoded);
+                        } catch (java.io.UnsupportedEncodingException e) {
+                            Log.e(TAG, "Error encoding query", e);
+                            queryParams.append("queries=").append(query);
+                        }
                     }
-                    requestBody.add("queries", queriesArray);
-                    
-                    String jsonBody = gson.toJson(requestBody);
-                    Log.d(TAG, "Request body with queries: " + jsonBody);
-                    
-                    OutputStream outputStream = connection.getOutputStream();
-                    outputStream.write(jsonBody.getBytes("UTF-8"));
-                    outputStream.flush();
-                    outputStream.close();
-                } else {
-                    // No queries, use simple GET
-                    connection = createConnection(url, "GET");
+                    url += "&" + queryParams.toString();
+                    Log.d(TAG, "URL with repeated queries parameters: " + url);
                 }
                 
+                HttpURLConnection connection = createConnection(url, "GET");
                 connection.connect();
                 
                 int responseCode = connection.getResponseCode();
