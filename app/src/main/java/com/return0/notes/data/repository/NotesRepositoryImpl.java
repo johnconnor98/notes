@@ -292,14 +292,15 @@ public class NotesRepositoryImpl implements NotesRepository {
                 
                 // Build data object
                 // Note: Appwrite automatically provides "$id" as the document ID
+                // Only include attributes that exist in your Appwrite collection schema
                 JsonObject data = new JsonObject();
                 data.addProperty("title", title);
                 data.addProperty("subject", subject != null ? subject : "");
                 data.addProperty("semester", semester != null ? semester : "");
                 data.addProperty("branch", branch != null ? branch : "");
                 data.addProperty("college", college != null ? college : "");
-                data.addProperty("filePath", filePath != null ? filePath : "");
-                data.addProperty("thumbnailPath", thumbPath != null ? thumbPath : "");
+                // Note: filePath and thumbnailPath are not in the collection schema
+                // If you need them, add them as attributes in Appwrite Console first
                 
                 // Appwrite expects form-urlencoded with "documentId" and "data" parameters
                 String dataJson = gson.toJson(data);
@@ -348,7 +349,8 @@ public class NotesRepositoryImpl implements NotesRepository {
                     noteDto.setSemester(responseObj.has("semester") ? responseObj.get("semester").getAsString() : (semester != null ? semester : ""));
                     noteDto.setBranch(responseObj.has("branch") ? responseObj.get("branch").getAsString() : (branch != null ? branch : ""));
                     noteDto.setCollege(responseObj.has("college") ? responseObj.get("college").getAsString() : (college != null ? college : ""));
-                    noteDto.setFilePath(responseObj.has("filePath") ? responseObj.get("filePath").getAsString() : filePath);
+                    // Store filePath from the upload result (not from database response)
+                    noteDto.setFilePath(filePath != null ? filePath : "");
                     
                     Log.d(TAG, "✓ Saved to Appwrite Database:");
                     Log.d(TAG, "  ID: " + noteDto.getId());
