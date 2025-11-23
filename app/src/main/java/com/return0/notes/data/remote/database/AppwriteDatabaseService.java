@@ -108,8 +108,9 @@ public class AppwriteDatabaseService implements DatabaseService {
                 Log.d(TAG, "Queries JSON array: " + queriesJson);
                 Log.d(TAG, "Queries JSON length: " + queriesJson.length() + " chars");
                 
-                // Build URL with queries parameter using java.net.URL for proper encoding
-                // Appwrite REST API expects: queries=["equal(\"field\",\"value\")"] as URL parameter
+                // Build URL with queries parameter
+                // CRITICAL: Appwrite needs brackets [ ] to remain unencoded to recognize it as an array
+                // Solution: Encode only the content inside brackets, not the brackets themselves
                 String finalUrl;
                 try {
                     Log.d(TAG, "Building final URL...");
@@ -118,19 +119,21 @@ public class AppwriteDatabaseService implements DatabaseService {
                     Log.d(TAG, "  Base query string: " + queryBuilder.toString());
                     
                     if (!queryStrings.isEmpty()) {
-                        // Append queries parameter - URLEncoder will encode it properly
-                        String encodedQueries = URLEncoder.encode(queriesJson, "UTF-8");
-                        queryBuilder.append("&queries=").append(encodedQueries);
-                        Log.d(TAG, "  Queries JSON (before encoding): " + queriesJson);
-                        Log.d(TAG, "  Queries JSON (after encoding): " + encodedQueries);
-                        Log.d(TAG, "  Encoded length: " + encodedQueries.length() + " chars");
+                        // Strategy: Keep brackets unencoded, encode only the content
+                        // Format: queries=[ENCODED_CONTENT] where ENCODED_CONTENT is the array content
+                        // Extract content between brackets
+                        String arrayContent = queriesJson.substring(1, queriesJson.length() - 1); // Remove [ and ]
+                        Log.d(TAG, "  Array content (without brackets): " + arrayContent);
                         
-                        // Check if brackets are encoded
-                        boolean bracketsEncoded = encodedQueries.contains("%5B") || encodedQueries.contains("%5D");
-                        Log.d(TAG, "  Brackets encoded: " + bracketsEncoded);
-                        if (bracketsEncoded) {
-                            Log.d(TAG, "  WARNING: Brackets [ ] are encoded as %5B and %5D");
-                        }
+                        // Encode only the content
+                        String encodedContent = URLEncoder.encode(arrayContent, "UTF-8");
+                        Log.d(TAG, "  Encoded content: " + encodedContent);
+                        
+                        // Reconstruct with unencoded brackets
+                        String queriesParam = "[" + encodedContent + "]";
+                        queryBuilder.append("&queries=").append(queriesParam);
+                        Log.d(TAG, "  Queries parameter (brackets preserved): " + queriesParam);
+                        Log.d(TAG, "  Queries JSON (original): " + queriesJson);
                     } else {
                         Log.d(TAG, "  No queries to add (empty query list)");
                     }
@@ -138,32 +141,30 @@ public class AppwriteDatabaseService implements DatabaseService {
                     String queryString = queryBuilder.toString();
                     Log.d(TAG, "  Full query string: " + queryString);
                     
-                    // Use URL constructor to ensure proper encoding
-                    String urlWithQuery = baseUrl + "?" + queryString;
-                    Log.d(TAG, "  URL before URL() constructor: " + urlWithQuery);
+                    // Construct final URL - brackets will remain as [ and ] in the URL
+                    finalUrl = baseUrl + "?" + queryString;
+                    Log.d(TAG, "  Final URL: " + finalUrl);
                     
-                    URL urlObj = new URL(urlWithQuery);
-                    finalUrl = urlObj.toString();
-                    Log.d(TAG, "  Final URL (after URL() constructor): " + finalUrl);
-                    
-                    // Compare URLs
-                    if (!urlWithQuery.equals(finalUrl)) {
-                        Log.d(TAG, "  NOTE: URL changed after URL() constructor");
-                        Log.d(TAG, "    Before: " + urlWithQuery);
-                        Log.d(TAG, "    After:  " + finalUrl);
+                    // Verify brackets are present
+                    if (finalUrl.contains("[") && finalUrl.contains("]")) {
+                        Log.d(TAG, "  ✓ Brackets [ ] are preserved in URL");
+                    } else {
+                        Log.d(TAG, "  ✗ WARNING: Brackets are missing in URL");
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "ERROR: Failed to build URL", e);
                     Log.e(TAG, "Exception type: " + e.getClass().getName());
                     Log.e(TAG, "Exception message: " + e.getMessage());
-                    // Fallback
+                    // Fallback: try with brackets preserved
                     Log.d(TAG, "Using fallback URL construction...");
                     finalUrl = baseUrl + "?project=" + PROJECT_ID;
                     if (!queryStrings.isEmpty()) {
                         try {
-                            String encoded = URLEncoder.encode(queriesJson, "UTF-8");
-                            finalUrl += "&queries=" + encoded;
-                            Log.d(TAG, "  Fallback URL with encoded queries: " + finalUrl);
+                            // Extract content and encode separately
+                            String arrayContent = queriesJson.substring(1, queriesJson.length() - 1);
+                            String encoded = URLEncoder.encode(arrayContent, "UTF-8");
+                            finalUrl += "&queries=[" + encoded + "]";
+                            Log.d(TAG, "  Fallback URL with preserved brackets: " + finalUrl);
                         } catch (java.io.UnsupportedEncodingException ex) {
                             finalUrl += "&queries=" + queriesJson;
                             Log.d(TAG, "  Fallback URL with unencoded queries: " + finalUrl);
