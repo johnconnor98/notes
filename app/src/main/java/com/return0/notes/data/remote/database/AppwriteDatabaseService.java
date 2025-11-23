@@ -53,19 +53,21 @@ public class AppwriteDatabaseService implements DatabaseService {
                 String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents?project=" + PROJECT_ID;
                 Log.d(TAG, "Database URL: " + url);
                 
-                // Build queries array
+                // Build queries array - Appwrite uses Query.equal(), Query.search(), etc.
+                // Format: equal("field","value") or search("field","value")
                 List<String> queryStrings = new ArrayList<>();
                 if (subject != null && !subject.isEmpty()) {
-                    queryStrings.add("search(\"subject\",\"" + escapeJsonString(subject) + "\")");
+                    // Use equal for exact match, or search for partial match
+                    queryStrings.add("equal(\"subject\",\"" + escapeJsonString(subject) + "\")");
                 }
                 if (semester != null && !semester.isEmpty()) {
-                    queryStrings.add("search(\"semester\",\"" + escapeJsonString(semester) + "\")");
+                    queryStrings.add("equal(\"semester\",\"" + escapeJsonString(semester) + "\")");
                 }
                 if (branch != null && !branch.isEmpty()) {
-                    queryStrings.add("search(\"branch\",\"" + escapeJsonString(branch) + "\")");
+                    queryStrings.add("equal(\"branch\",\"" + escapeJsonString(branch) + "\")");
                 }
                 if (college != null && !college.isEmpty()) {
-                    queryStrings.add("search(\"college\",\"" + escapeJsonString(college) + "\")");
+                    queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
                 // Build query parameters - Appwrite expects queries as array notation
