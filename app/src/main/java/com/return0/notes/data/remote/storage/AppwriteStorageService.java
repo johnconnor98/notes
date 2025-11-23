@@ -4,12 +4,17 @@ import android.content.Context;
 import android.util.Log;
 import io.appwrite.Client;
 import io.appwrite.services.Storage;
+import io.appwrite.InputFile;
 import io.appwrite.exceptions.AppwriteException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.util.concurrent.CompletableFuture;
+import kotlin.coroutines.Continuation;
+import kotlin.coroutines.CoroutineContext;
+import kotlin.coroutines.EmptyCoroutineContext;
+import kotlin.Result;
 
 public class AppwriteStorageService implements StorageService {
     private static final String TAG = "AppwriteStorageService";
@@ -73,28 +78,43 @@ public class AppwriteStorageService implements StorageService {
             CompletableFuture.runAsync(() -> {
                 try {
                     String fileId = java.util.UUID.randomUUID().toString();
-                    io.appwrite.models.File uploadedFile = storage.createFile(
+                    InputFile inputFile = InputFile.fromFile(file);
+                    
+                    storage.createFile(
                         NOTES_BUCKET_ID,
                         fileId,
-                        file
+                        inputFile,
+                        new Continuation<io.appwrite.models.File>() {
+                            @Override
+                            public CoroutineContext getContext() {
+                                return EmptyCoroutineContext.INSTANCE;
+                            }
+
+                            @Override
+                            public void resumeWith(Result<io.appwrite.models.File> result) {
+                                if (result.isSuccess()) {
+                                    io.appwrite.models.File uploadedFile = result.getValue();
+                                    String uploadedFileId = uploadedFile.getId();
+                                    String downloadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
+                                    String storagePath = NOTES_BUCKET_ID + "/" + uploadedFileId;
+                                    
+                                    Log.d(TAG, "Upload successful - File ID: " + uploadedFileId);
+                                    Log.d(TAG, "Download URL: " + downloadUrl);
+                                    Log.d(TAG, "Storage path: " + storagePath);
+                                    
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                        callback.onSuccess(downloadUrl, storagePath);
+                                    });
+                                } else {
+                                    Throwable exception = result.exceptionOrNull();
+                                    Log.e(TAG, "Upload failed - Filename: " + filename + ", Error: " + (exception != null ? exception.getMessage() : "Unknown error"), exception);
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                        callback.onError("Upload failed: " + (exception != null ? exception.getMessage() : "Unknown error"));
+                                    });
+                                }
+                            }
+                        }
                     );
-                    
-                    String uploadedFileId = uploadedFile.getId();
-                    String downloadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
-                    String storagePath = NOTES_BUCKET_ID + "/" + uploadedFileId;
-                    
-                    Log.d(TAG, "Upload successful - File ID: " + uploadedFileId);
-                    Log.d(TAG, "Download URL: " + downloadUrl);
-                    Log.d(TAG, "Storage path: " + storagePath);
-                    
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onSuccess(downloadUrl, storagePath);
-                    });
-                } catch (AppwriteException e) {
-                    Log.e(TAG, "Upload failed - Filename: " + filename + ", Error: " + e.getMessage(), e);
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Upload failed: " + e.getMessage());
-                    });
                 } catch (Exception e) {
                     Log.e(TAG, "Error during upload - Filename: " + filename, e);
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
@@ -134,27 +154,42 @@ public class AppwriteStorageService implements StorageService {
             CompletableFuture.runAsync(() -> {
                 try {
                     String fileId = java.util.UUID.randomUUID().toString();
-                    io.appwrite.models.File uploadedFile = storage.createFile(
+                    InputFile inputFile = InputFile.fromFile(file);
+                    
+                    storage.createFile(
                         THUMBNAILS_BUCKET_ID,
                         fileId,
-                        file
+                        inputFile,
+                        new Continuation<io.appwrite.models.File>() {
+                            @Override
+                            public CoroutineContext getContext() {
+                                return EmptyCoroutineContext.INSTANCE;
+                            }
+
+                            @Override
+                            public void resumeWith(Result<io.appwrite.models.File> result) {
+                                if (result.isSuccess()) {
+                                    io.appwrite.models.File uploadedFile = result.getValue();
+                                    String uploadedFileId = uploadedFile.getId();
+                                    String downloadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
+                                    String storagePath = THUMBNAILS_BUCKET_ID + "/" + uploadedFileId;
+                                    
+                                    Log.d(TAG, "Thumbnail upload successful - File ID: " + uploadedFileId);
+                                    Log.d(TAG, "Thumbnail download URL: " + downloadUrl);
+                                    
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                        callback.onSuccess(downloadUrl, storagePath);
+                                    });
+                                } else {
+                                    Throwable exception = result.exceptionOrNull();
+                                    Log.e(TAG, "Thumbnail upload failed - Filename: " + filename + ", Error: " + (exception != null ? exception.getMessage() : "Unknown error"), exception);
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                        callback.onError("Thumbnail upload failed: " + (exception != null ? exception.getMessage() : "Unknown error"));
+                                    });
+                                }
+                            }
+                        }
                     );
-                    
-                    String uploadedFileId = uploadedFile.getId();
-                    String downloadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files/" + uploadedFileId + "/view?project=" + PROJECT_ID;
-                    String storagePath = THUMBNAILS_BUCKET_ID + "/" + uploadedFileId;
-                    
-                    Log.d(TAG, "Thumbnail upload successful - File ID: " + uploadedFileId);
-                    Log.d(TAG, "Thumbnail download URL: " + downloadUrl);
-                    
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onSuccess(downloadUrl, storagePath);
-                    });
-                } catch (AppwriteException e) {
-                    Log.e(TAG, "Thumbnail upload failed - Filename: " + filename + ", Error: " + e.getMessage(), e);
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Thumbnail upload failed: " + e.getMessage());
-                    });
                 } catch (Exception e) {
                     Log.e(TAG, "Error during thumbnail upload - Filename: " + filename, e);
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
