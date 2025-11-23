@@ -32,7 +32,7 @@ public class NotesRepositoryImpl implements NotesRepository {
     public NotesRepositoryImpl(Context context) {
         this.context = context.getApplicationContext();
         this.apiService = ApiClient.getApiService();
-        this.storageService = AppwriteStorageService.getInstance();
+        this.storageService = AppwriteStorageService.getInstance(context);
     }
 
     @Override

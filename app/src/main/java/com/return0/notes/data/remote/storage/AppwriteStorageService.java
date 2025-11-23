@@ -1,13 +1,15 @@
 package com.return0.notes.data.remote.storage;
 
+import android.content.Context;
 import android.util.Log;
 import io.appwrite.Client;
 import io.appwrite.services.Storage;
-import io.appwrite.models.File;
+import io.appwrite.InputFile;
 import io.appwrite.exceptions.AppwriteException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.util.concurrent.CompletableFuture;
 
 public class AppwriteStorageService implements StorageService {
@@ -22,9 +24,11 @@ public class AppwriteStorageService implements StorageService {
     private static final String API_KEY = "standard_c50102f470efafa6715e49beab3390411ad890f3f9e5fed0efb299054a373a95b21e7d44158f900d89876e2a796910ea1653624350a9c73b072498605c0f1794f6c348a30471f968d9886e4d1821aabc0ac91ccea5bd1101d65da3af26fbe10e31229a2b19f437af22230583301353fd166783a783a90f11c91f5d0c4cae2a72";
 
     private Client client;
+    private Context context;
     
-    private AppwriteStorageService() {
-        client = new Client()
+    private AppwriteStorageService(Context context) {
+        this.context = context.getApplicationContext();
+        client = new Client(context)
             .setEndpoint(ENDPOINT)
             .setProject(PROJECT_ID)
             .setKey(API_KEY);
@@ -35,9 +39,9 @@ public class AppwriteStorageService implements StorageService {
         Log.d(TAG, "Project ID: " + PROJECT_ID);
     }
 
-    public static synchronized AppwriteStorageService getInstance() {
+    public static synchronized AppwriteStorageService getInstance(Context context) {
         if (instance == null) {
-            instance = new AppwriteStorageService();
+            instance = new AppwriteStorageService(context);
         }
         return instance;
     }
@@ -71,12 +75,12 @@ public class AppwriteStorageService implements StorageService {
             CompletableFuture.runAsync(() -> {
                 try {
                     FileInputStream fileInputStream = new FileInputStream(file);
+                    InputFile inputFile = InputFile.fromFile(fileInputStream, filename);
                     
-                    File uploadedFile = storage.createFile(
+                    io.appwrite.models.File uploadedFile = storage.createFile(
                         NOTES_BUCKET_ID,
                         "unique()",
-                        fileInputStream,
-                        filename
+                        inputFile
                     );
                     
                     String fileId = uploadedFile.getId();
@@ -134,12 +138,12 @@ public class AppwriteStorageService implements StorageService {
             CompletableFuture.runAsync(() -> {
                 try {
                     FileInputStream fileInputStream = new FileInputStream(file);
+                    InputFile inputFile = InputFile.fromFile(fileInputStream, filename);
                     
-                    File uploadedFile = storage.createFile(
+                    io.appwrite.models.File uploadedFile = storage.createFile(
                         THUMBNAILS_BUCKET_ID,
                         "unique()",
-                        fileInputStream,
-                        filename
+                        inputFile
                     );
                     
                     String fileId = uploadedFile.getId();
@@ -189,14 +193,23 @@ public class AppwriteStorageService implements StorageService {
         
         CompletableFuture.runAsync(() -> {
             try {
-                byte[] fileBytes = storage.getFileDownload(bucketId, fileId);
+                InputStream inputStream = storage.getFileDownload(bucketId, fileId);
+                byte[] buffer = new byte[8192];
+                java.io.ByteArrayOutputStream byteArrayOutputStream = new java.io.ByteArrayOutputStream();
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    byteArrayOutputStream.write(buffer, 0, bytesRead);
+                }
+                byte[] fileBytes = byteArrayOutputStream.toByteArray();
+                inputStream.close();
+                byteArrayOutputStream.close();
                 
                 Log.d(TAG, "Download successful - Bytes downloaded: " + fileBytes.length + ", File ID: " + fileId);
                 
                 java.io.File file = new java.io.File(downloadsDir, localFilename);
-                FileOutputStream outputStream = new FileOutputStream(file);
-                outputStream.write(fileBytes);
-                outputStream.close();
+                FileOutputStream fileOutputStream = new FileOutputStream(file);
+                fileOutputStream.write(fileBytes);
+                fileOutputStream.close();
                 
                 Log.d(TAG, "File saved to: " + file.getAbsolutePath());
                 
