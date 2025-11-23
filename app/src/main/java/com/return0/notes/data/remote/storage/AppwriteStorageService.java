@@ -2,6 +2,9 @@ package com.return0.notes.data.remote.storage;
 
 import android.content.Context;
 import android.util.Log;
+import io.appwrite.Client;
+import io.appwrite.services.Account;
+import io.appwrite.exceptions.AppwriteException;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.File;
@@ -9,7 +12,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.CookieManager;
+import java.net.CookieHandler;
+import java.net.CookiePolicy;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class AppwriteStorageService implements StorageService {
     private static final String TAG = "AppwriteStorageService";
@@ -19,15 +26,78 @@ public class AppwriteStorageService implements StorageService {
     
     private static final String ENDPOINT = "https://fra.cloud.appwrite.io/v1";
     private static final String PROJECT_ID = "6922970a001ab5faef56";
-    private static final String API_KEY = "standard_c50102f470efafa6715e49beab3390411ad890f3f9e5fed0efb299054a373a95b21e7d44158f900d89876e2a796910ea1653624350a9c73b072498605c0f1794f6c348a30471f968d9886e4d1821aabc0ac91ccea5bd1101d65da3af26fbe10e31229a2b19f437af22230583301353fd166783a783a90f11c91f5d0c4cae2a72";
 
     private Context context;
+    private Client client;
+    private Account account;
+    private AtomicBoolean sessionCreated = new AtomicBoolean(false);
     
     private AppwriteStorageService(Context context) {
         this.context = context.getApplicationContext();
+        client = new Client(context)
+            .setEndpoint(ENDPOINT)
+            .setProject(PROJECT_ID);
+        
+        account = new Account(client);
+        
+        // Set up cookie manager to handle session cookies
+        CookieManager cookieManager = new CookieManager();
+        cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
+        CookieHandler.setDefault(cookieManager);
+        
         Log.d(TAG, "AppwriteStorageService initialized");
         Log.d(TAG, "Endpoint: " + ENDPOINT);
         Log.d(TAG, "Project ID: " + PROJECT_ID);
+    }
+    
+    private void ensureSessionCreated(Runnable onComplete) {
+        if (sessionCreated.get()) {
+            onComplete.run();
+            return;
+        }
+        
+        CompletableFuture.runAsync(() -> {
+            synchronized (sessionCreated) {
+                if (sessionCreated.get()) {
+                    onComplete.run();
+                    return;
+                }
+                
+                try {
+                    account.createAnonymousSession(new kotlin.coroutines.Continuation<io.appwrite.models.Session>() {
+                        @Override
+                        public kotlin.coroutines.CoroutineContext getContext() {
+                            return kotlin.coroutines.EmptyCoroutineContext.INSTANCE;
+                        }
+
+                        @Override
+                        public void resumeWith(Object result) {
+                            if (result instanceof kotlin.Result) {
+                                kotlin.Result<io.appwrite.models.Session> kotlinResult = (kotlin.Result<io.appwrite.models.Session>) result;
+                                if (kotlinResult.isSuccess()) {
+                                    sessionCreated.set(true);
+                                    Log.d(TAG, "Anonymous session created successfully");
+                                    onComplete.run();
+                                } else {
+                                    Throwable exception = kotlinResult.exceptionOrNull();
+                                    Log.e(TAG, "Failed to create anonymous session: " + (exception != null ? exception.getMessage() : "Unknown error"), exception);
+                                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                        // Still try to proceed - session might work anyway
+                                        sessionCreated.set(true);
+                                        onComplete.run();
+                                    });
+                                }
+                            }
+                        }
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "Error creating anonymous session", e);
+                    // Still try to proceed
+                    sessionCreated.set(true);
+                    onComplete.run();
+                }
+            }
+        });
     }
 
     public static synchronized AppwriteStorageService getInstance(Context context) {
@@ -63,19 +133,19 @@ public class AppwriteStorageService implements StorageService {
             
             Log.d(TAG, "Starting Appwrite upload - Bucket: " + NOTES_BUCKET_ID + ", Filename: " + filename + ", Size: " + fileSize + " bytes");
             
-            CompletableFuture.runAsync(() -> {
-                try {
-                    String fileId = java.util.UUID.randomUUID().toString();
-                    String uploadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files";
-                    
-                    String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
-                    URL url = new URL(uploadUrl);
-                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("POST");
-                    connection.setDoOutput(true);
-                    connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-                    connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
-                    connection.setRequestProperty("X-Appwrite-Key", API_KEY);
+            ensureSessionCreated(() -> {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        String fileId = java.util.UUID.randomUUID().toString();
+                        String uploadUrl = ENDPOINT + "/storage/buckets/" + NOTES_BUCKET_ID + "/files";
+                        
+                        String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+                        URL url = new URL(uploadUrl);
+                        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                        connection.setRequestMethod("POST");
+                        connection.setDoOutput(true);
+                        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+                        connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
                     
                     OutputStream outputStream = connection.getOutputStream();
                     java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.OutputStreamWriter(outputStream, "UTF-8"), true);
@@ -144,12 +214,13 @@ public class AppwriteStorageService implements StorageService {
                         throw new Exception(errorMessage);
                     }
                     connection.disconnect();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error during upload - Filename: " + filename, e);
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Upload error: " + e.getMessage());
-                    });
-                }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error during upload - Filename: " + filename, e);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            callback.onError("Upload error: " + e.getMessage());
+                        });
+                    }
+                });
             });
             
         } catch (Exception e) {
@@ -180,19 +251,19 @@ public class AppwriteStorageService implements StorageService {
             
             Log.d(TAG, "Starting Appwrite thumbnail upload - Bucket: " + THUMBNAILS_BUCKET_ID + ", Filename: " + filename);
             
-            CompletableFuture.runAsync(() -> {
-                try {
-                    String fileId = java.util.UUID.randomUUID().toString();
-                    String uploadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files";
-                    
-                    String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
-                    URL url = new URL(uploadUrl);
-                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("POST");
-                    connection.setDoOutput(true);
-                    connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-                    connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
-                    connection.setRequestProperty("X-Appwrite-Key", API_KEY);
+            ensureSessionCreated(() -> {
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        String fileId = java.util.UUID.randomUUID().toString();
+                        String uploadUrl = ENDPOINT + "/storage/buckets/" + THUMBNAILS_BUCKET_ID + "/files";
+                        
+                        String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+                        URL url = new URL(uploadUrl);
+                        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                        connection.setRequestMethod("POST");
+                        connection.setDoOutput(true);
+                        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+                        connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
                     
                     OutputStream outputStream = connection.getOutputStream();
                     java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.OutputStreamWriter(outputStream, "UTF-8"), true);
@@ -260,12 +331,13 @@ public class AppwriteStorageService implements StorageService {
                         throw new Exception(errorMessage);
                     }
                     connection.disconnect();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error during thumbnail upload - Filename: " + filename, e);
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Thumbnail upload error: " + e.getMessage());
-                    });
-                }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error during thumbnail upload - Filename: " + filename, e);
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            callback.onError("Thumbnail upload error: " + e.getMessage());
+                        });
+                    }
+                });
             });
             
         } catch (Exception e) {
