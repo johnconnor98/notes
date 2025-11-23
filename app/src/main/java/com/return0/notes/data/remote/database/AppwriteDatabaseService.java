@@ -69,7 +69,7 @@ public class AppwriteDatabaseService implements DatabaseService {
                     queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                HttpURLConnection connection;
+                // Build query parameters if we have any
                 if (!queryStrings.isEmpty()) {
                     // Use array notation: queries[]=value1&queries[]=value2
                     // Brackets should NOT be URL encoded
