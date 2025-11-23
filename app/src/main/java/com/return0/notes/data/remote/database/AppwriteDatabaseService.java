@@ -49,8 +49,41 @@ public class AppwriteDatabaseService implements DatabaseService {
                            DatabaseCallback<List<NoteDto>> callback) {
         CompletableFuture.runAsync(() -> {
             try {
-                String url = buildSearchUrl(subject, semester, branch, college);
+                // Build base URL
+                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents?project=" + PROJECT_ID;
                 Log.d(TAG, "Database URL: " + url);
+                
+                // Build queries array
+                List<String> queryStrings = new ArrayList<>();
+                if (subject != null && !subject.isEmpty()) {
+                    queryStrings.add("search(\"subject\",\"" + escapeJsonString(subject) + "\")");
+                }
+                if (semester != null && !semester.isEmpty()) {
+                    queryStrings.add("search(\"semester\",\"" + escapeJsonString(semester) + "\")");
+                }
+                if (branch != null && !branch.isEmpty()) {
+                    queryStrings.add("search(\"branch\",\"" + escapeJsonString(branch) + "\")");
+                }
+                if (college != null && !college.isEmpty()) {
+                    queryStrings.add("search(\"college\",\"" + escapeJsonString(college) + "\")");
+                }
+                
+                // Build query parameters - Appwrite expects queries as array notation
+                if (!queryStrings.isEmpty()) {
+                    StringBuilder queryParams = new StringBuilder();
+                    for (int i = 0; i < queryStrings.size(); i++) {
+                        if (i > 0) queryParams.append("&");
+                        try {
+                            String encodedQuery = URLEncoder.encode(queryStrings.get(i), "UTF-8");
+                            queryParams.append("queries[]=").append(encodedQuery);
+                        } catch (java.io.UnsupportedEncodingException e) {
+                            Log.e(TAG, "Error encoding query", e);
+                            queryParams.append("queries[]=").append(queryStrings.get(i));
+                        }
+                    }
+                    url += "&" + queryParams.toString();
+                    Log.d(TAG, "Query parameters: " + queryParams.toString());
+                }
                 
                 HttpURLConnection connection = createConnection(url, "GET");
                 connection.connect();
