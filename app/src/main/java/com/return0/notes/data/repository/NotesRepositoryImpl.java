@@ -6,6 +6,8 @@ import android.util.Log;
 import com.return0.notes.data.mapper.NoteMapper;
 import com.return0.notes.data.remote.storage.StorageService;
 import com.return0.notes.data.remote.storage.AppwriteStorageService;
+import com.return0.notes.data.remote.database.DatabaseService;
+import com.return0.notes.data.remote.database.AppwriteDatabaseService;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -31,31 +33,39 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Repository implementation following SOLID principles:
+ * - Single Responsibility: Coordinates between storage and database services
+ * - Dependency Inversion: Depends on abstractions (StorageService, DatabaseService), not concretions
+ * - Open/Closed: Open for extension (new services), closed for modification
+ */
 public class NotesRepositoryImpl implements NotesRepository {
     private static final String TAG = "NotesRepository";
-    private static final String ENDPOINT = "https://fra.cloud.appwrite.io/v1";
-    private static final String PROJECT_ID = "6922970a001ab5faef56";
-    private static final String DATABASE_ID = "69231061001de8342953";
-    private static final String COLLECTION_ID = "notes_list";
     
     private final Context context;
     private final StorageService storageService;
-    private final Gson gson = new Gson();
+    private final DatabaseService databaseService;
 
+    /**
+     * Constructor with dependency injection.
+     * Services can be easily swapped for testing or different implementations.
+     */
     public NotesRepositoryImpl(Context context) {
-        this.context = context.getApplicationContext();
-        this.storageService = AppwriteStorageService.getInstance(context);
+        this(context, 
+             AppwriteStorageService.getInstance(context),
+             new AppwriteDatabaseService());
     }
     
-    // Helper method to escape JSON string values
-    private String escapeJsonString(String input) {
-        if (input == null) return "";
-        return input.replace("\\", "\\\\")
-                   .replace("\"", "\\\"")
-                   .replace("\n", "\\n")
-                   .replace("\r", "\\r")
-                   .replace("\t", "\\t");
+    /**
+     * Constructor for dependency injection - allows easy swapping of implementations.
+     * Useful for testing or switching providers.
+     */
+    public NotesRepositoryImpl(Context context, StorageService storageService, DatabaseService databaseService) {
+        this.context = context.getApplicationContext();
+        this.storageService = storageService;
+        this.databaseService = databaseService;
     }
+    
 
     @Override
     public void loadNotes(LoadNotesCallback callback) {
@@ -80,147 +90,6 @@ public class NotesRepositoryImpl implements NotesRepository {
         loadNotesFromAppwrite(subject, semester, branch, college, callback);
     }
     
-    private void loadNotesFromAppwrite(String subject, String semester, String branch, String college, LoadNotesCallback callback) {
-        CompletableFuture.runAsync(() -> {
-            try {
-                // Build query parameters - use search for partial matching or equal for exact match
-                // For better search results, we'll use search() which does partial matching
-                List<String> queryStrings = new ArrayList<>();
-                if (subject != null && !subject.isEmpty()) {
-                    // Use search for partial matching (case-insensitive)
-                    queryStrings.add("search(\"subject\",\"" + escapeJsonString(subject) + "\")");
-                }
-                if (semester != null && !semester.isEmpty()) {
-                    queryStrings.add("search(\"semester\",\"" + escapeJsonString(semester) + "\")");
-                }
-                if (branch != null && !branch.isEmpty()) {
-                    queryStrings.add("search(\"branch\",\"" + escapeJsonString(branch) + "\")");
-                }
-                if (college != null && !college.isEmpty()) {
-                    queryStrings.add("search(\"college\",\"" + escapeJsonString(college) + "\")");
-                }
-                
-                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
-                boolean hasQuery = false;
-                
-                if (!queryStrings.isEmpty()) {
-                    // Appwrite expects queries as URL-encoded JSON array
-                    // Format: queries=["search(\"field\",\"value\")"]
-                    // Each query string should be a JSON string in the array
-                    StringBuilder queriesJson = new StringBuilder("[");
-                    for (int i = 0; i < queryStrings.size(); i++) {
-                        if (i > 0) queriesJson.append(",");
-                        // Each query needs to be a JSON string (wrapped in quotes)
-                        queriesJson.append("\"").append(queryStrings.get(i)).append("\"");
-                    }
-                    queriesJson.append("]");
-                    
-                    String encodedQueries = java.net.URLEncoder.encode(queriesJson.toString(), "UTF-8");
-                    url += "?queries=" + encodedQueries;
-                    hasQuery = true;
-                    Log.d(TAG, "Query JSON: " + queriesJson.toString());
-                    Log.d(TAG, "Encoded queries: " + encodedQueries);
-                }
-                
-                // Add project parameter - use ? if no query params, & if query params exist
-                url += (hasQuery ? "&" : "?") + "project=" + PROJECT_ID;
-                
-                Log.d(TAG, "Appwrite Database URL: " + url);
-                
-                java.net.URL appwriteUrl = new java.net.URL(url);
-                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
-                connection.connect();
-                
-                int responseCode = connection.getResponseCode();
-                Log.d(TAG, "Appwrite Database Response Code: " + responseCode);
-                
-                if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                    InputStream inputStream = connection.getInputStream();
-                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream));
-                    StringBuilder response = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        response.append(line);
-                    }
-                    reader.close();
-                    inputStream.close();
-                    
-                    String jsonResponse = response.toString();
-                    Log.d(TAG, "Raw JSON response from Appwrite: " + jsonResponse);
-                    
-                    // Parse JSON response
-                    JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
-                    JsonArray documentsArray = jsonObject.getAsJsonArray("documents");
-                    
-                    List<NoteDto> noteDtos = new ArrayList<>();
-                    if (documentsArray != null) {
-                        for (JsonElement element : documentsArray) {
-                            JsonObject doc = element.getAsJsonObject();
-                            NoteDto noteDto = new NoteDto();
-                            noteDto.setId(doc.has("$id") ? doc.get("$id").getAsString() : "");
-                            noteDto.setNotesid(doc.has("notesid") ? doc.get("notesid").getAsString() : "");
-                            noteDto.setTitle(doc.has("title") ? doc.get("title").getAsString() : "");
-                            noteDto.setSubject(doc.has("subject") ? doc.get("subject").getAsString() : "");
-                            noteDto.setSemester(doc.has("semester") ? doc.get("semester").getAsString() : "");
-                            noteDto.setBranch(doc.has("branch") ? doc.get("branch").getAsString() : "");
-                            noteDto.setCollege(doc.has("college") ? doc.get("college").getAsString() : "");
-                            // Handle null values for filePath and thumbnailPath
-                            if (doc.has("filePath") && !doc.get("filePath").isJsonNull()) {
-                                noteDto.setFilePath(doc.get("filePath").getAsString());
-                            } else {
-                                noteDto.setFilePath("");
-                            }
-                            if (doc.has("thumbnailPath") && !doc.get("thumbnailPath").isJsonNull()) {
-                                String thumbPath = doc.get("thumbnailPath").getAsString();
-                                noteDto.setThumbnailPath(thumbPath);
-                                noteDto.setThumbnailUrl(thumbPath);
-                            } else {
-                                noteDto.setThumbnailPath("");
-                                noteDto.setThumbnailUrl("");
-                            }
-                            noteDtos.add(noteDto);
-                        }
-                    }
-                    
-                    Log.d(TAG, "Parsed " + noteDtos.size() + " documents from Appwrite");
-                    logAllDatabaseData(noteDtos, "Appwrite Database Results");
-                    
-                    List<Note> notes = NoteMapper.toDomainList(noteDtos);
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onSuccess(notes);
-                    });
-                } else {
-                    InputStream errorStream = connection.getErrorStream();
-                    final String errorMessage;
-                    if (errorStream != null) {
-                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
-                        StringBuilder error = new StringBuilder();
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            error.append(line);
-                        }
-                        errorMessage = "HTTP error code: " + responseCode + " - " + error.toString();
-                        reader.close();
-                    } else {
-                        errorMessage = "HTTP error code: " + responseCode;
-                    }
-                    Log.e(TAG, "Appwrite Database error: " + errorMessage);
-                    final String finalErrorMessage = errorMessage;
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Database error: " + finalErrorMessage);
-                    });
-                }
-                connection.disconnect();
-            } catch (Exception e) {
-                Log.e(TAG, "Error loading notes from Appwrite Database", e);
-                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                    callback.onError("Error: " + e.getMessage());
-                });
-            }
-        });
-    }
     
     private void logAllDatabaseData(List<NoteDto> notes, String context) {
         Log.d(TAG, "==================================================================================");
@@ -311,10 +180,15 @@ public class NotesRepositoryImpl implements NotesRepository {
         }
     }
 
+    /**
+     * Saves note metadata to database after file upload.
+     * Uses DatabaseService abstraction - can work with any database provider.
+     * Follows Dependency Inversion Principle - depends on abstraction, not implementation.
+     */
     private void sendMetadataToBackend(String title, String subject, String semester, String branch, 
                                       String college, String fileUrl, String filePath, String thumbUrl, 
                                       String thumbPath, String originalFilename, UploadCallback callback) {
-        Log.d(TAG, "=== SENDING DATA TO APPWRITE DATABASE ===");
+        Log.d(TAG, "=== SENDING DATA TO DATABASE ===");
         Log.d(TAG, "Title: " + title);
         Log.d(TAG, "Subject: " + (subject != null ? subject : "NULL"));
         Log.d(TAG, "Semester: " + (semester != null ? semester : "NULL"));
@@ -324,239 +198,75 @@ public class NotesRepositoryImpl implements NotesRepository {
         Log.d(TAG, "Thumbnail Path: " + thumbPath);
         Log.d(TAG, "=================================");
         
-        CompletableFuture.runAsync(() -> {
-            try {
-                String documentId = java.util.UUID.randomUUID().toString();
-                // Appwrite Database API format: /v1/databases/{databaseId}/collections/{collectionId}/documents
-                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
-                
-                Log.d(TAG, "Creating document in Appwrite Database");
-                Log.d(TAG, "URL: " + url);
-                Log.d(TAG, "Database ID: " + DATABASE_ID);
-                Log.d(TAG, "Collection ID: " + COLLECTION_ID);
-                Log.d(TAG, "Project ID: " + PROJECT_ID);
-                Log.d(TAG, "Document ID: " + documentId);
-                
-                // Build data object
-                // Note: Appwrite automatically provides "$id" as the document ID
-                // Only include attributes that exist in your Appwrite collection schema
-                JsonObject data = new JsonObject();
-                data.addProperty("title", title);
-                data.addProperty("subject", subject != null ? subject : "");
-                data.addProperty("semester", semester != null ? semester : "");
-                data.addProperty("branch", branch != null ? branch : "");
-                data.addProperty("college", college != null ? college : "");
-                // filePath is required for downloads - add it as a String attribute in Appwrite Console
-                data.addProperty("filePath", filePath != null ? filePath : "");
-                // thumbnailPath is optional - add it as a String attribute in Appwrite Console if needed
-                data.addProperty("thumbnailPath", thumbPath != null ? thumbPath : "");
-                
-                // Appwrite expects form-urlencoded with "documentId" and "data" parameters
-                String dataJson = gson.toJson(data);
-                Log.d(TAG, "Document data JSON: " + dataJson);
-                
-                // Appwrite expects: documentId and data as form fields, project as query param or header
-                String formData = "documentId=" + java.net.URLEncoder.encode(documentId, "UTF-8") + 
-                                 "&data=" + java.net.URLEncoder.encode(dataJson, "UTF-8");
-                
-                // Add project as query parameter
-                String urlWithProject = url + "?project=" + PROJECT_ID;
-                
-                java.net.URL appwriteUrl = new java.net.URL(urlWithProject);
-                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
-                connection.setRequestMethod("POST");
-                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-                connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
-                connection.setRequestProperty("X-Appwrite-Response-Format", "1.0.0");
-                connection.setDoOutput(true);
-                
-                OutputStream outputStream = connection.getOutputStream();
-                outputStream.write(formData.getBytes("UTF-8"));
-                outputStream.flush();
-                outputStream.close();
-                
-                int responseCode = connection.getResponseCode();
-                Log.d(TAG, "Appwrite Database Create Response Code: " + responseCode);
-                
-                if (responseCode == java.net.HttpURLConnection.HTTP_CREATED || responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                    InputStream inputStream = connection.getInputStream();
-                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream));
-                    StringBuilder response = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        response.append(line);
-                    }
-                    reader.close();
-                    inputStream.close();
-                    
-                    String jsonResponse = response.toString();
-                    Log.d(TAG, "Document created - Response: " + jsonResponse);
-                    
-                    // Parse response
-                    JsonObject responseObj = JsonParser.parseString(jsonResponse).getAsJsonObject();
-                    NoteDto noteDto = new NoteDto();
-                    String docId = responseObj.has("$id") ? responseObj.get("$id").getAsString() : documentId;
-                    noteDto.setId(docId);
-                    noteDto.setNotesid(docId); // Use document ID as notesid
-                    noteDto.setTitle(responseObj.has("title") ? responseObj.get("title").getAsString() : title);
-                    noteDto.setSubject(responseObj.has("subject") ? responseObj.get("subject").getAsString() : (subject != null ? subject : ""));
-                    noteDto.setSemester(responseObj.has("semester") ? responseObj.get("semester").getAsString() : (semester != null ? semester : ""));
-                    noteDto.setBranch(responseObj.has("branch") ? responseObj.get("branch").getAsString() : (branch != null ? branch : ""));
-                    noteDto.setCollege(responseObj.has("college") ? responseObj.get("college").getAsString() : (college != null ? college : ""));
-                    // Store filePath from the upload result (not from database response)
-                    noteDto.setFilePath(filePath != null ? filePath : "");
-                    
-                    Log.d(TAG, "✓ Saved to Appwrite Database:");
+        databaseService.createNote(title, subject, semester, branch, college, filePath, thumbPath,
+            new DatabaseService.DatabaseCallback<NoteDto>() {
+                @Override
+                public void onSuccess(NoteDto noteDto) {
+                    Log.d(TAG, "✓ Saved to Database:");
                     Log.d(TAG, "  ID: " + noteDto.getId());
-                    Log.d(TAG, "  NotesID: " + noteDto.getNotesid());
                     Log.d(TAG, "  Title: " + noteDto.getTitle());
-                    Log.d(TAG, "  Subject: " + noteDto.getSubject());
-                    Log.d(TAG, "  Semester: " + noteDto.getSemester());
-                    Log.d(TAG, "  Branch: " + noteDto.getBranch());
-                    Log.d(TAG, "  College: " + noteDto.getCollege());
                     
                     Note note = NoteMapper.toDomain(noteDto);
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onSuccess(note);
-                    });
-                } else {
-                    InputStream errorStream = connection.getErrorStream();
-                    final String errorMessage;
-                    if (errorStream != null) {
-                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
-                        StringBuilder error = new StringBuilder();
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            error.append(line);
-                        }
-                        errorMessage = "HTTP error code: " + responseCode + " - " + error.toString();
-                        reader.close();
-                        
-                        // Log detailed error information
-                        Log.e(TAG, "Failed to create document in Appwrite Database: " + errorMessage);
-                        Log.e(TAG, "Attempted to send attributes: title, subject, semester, branch, college");
-                        Log.e(TAG, "If you see 'Unknown attribute' errors, please add these attributes in Appwrite Console:");
-                        Log.e(TAG, "  Go to: Database -> Your Collection -> Attributes -> Create Attribute");
-                        Log.e(TAG, "  Required attributes: title (String), subject (String), semester (String), branch (String), college (String)");
-                    } else {
-                        errorMessage = "HTTP error code: " + responseCode;
-                    }
-                    final String finalErrorMessage = errorMessage;
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Database save failed: " + finalErrorMessage);
-                    });
+                    callback.onSuccess(note);
                 }
-                connection.disconnect();
-            } catch (Exception e) {
-                Log.e(TAG, "Error saving to Appwrite Database", e);
-                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                    callback.onError("Error: " + e.getMessage());
-                });
-            }
-        });
+
+                @Override
+                public void onError(String error) {
+                    Log.e(TAG, "Database save failed: " + error);
+                    callback.onError("Database save failed: " + error);
+                }
+            });
     }
 
     @Override
     public void downloadNote(String noteId, String filename, DownloadCallback callback) {
-        Log.d(TAG, "Downloading note from Appwrite - Note ID: " + noteId);
+        Log.d(TAG, "Downloading note - Note ID: " + noteId);
         
-        // First, get the document from Appwrite Database to get filePath
-        CompletableFuture.runAsync(() -> {
-            try {
-                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents/" + noteId + "?project=" + PROJECT_ID;
+        // Use DatabaseService to get note metadata
+        databaseService.getNoteById(noteId, new DatabaseService.DatabaseCallback<NoteDto>() {
+            @Override
+            public void onSuccess(NoteDto noteDto) {
+                String filePath = noteDto.getFilePath();
                 
-                java.net.URL appwriteUrl = new java.net.URL(url);
-                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
-                connection.connect();
-                
-                int responseCode = connection.getResponseCode();
-                if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                    InputStream inputStream = connection.getInputStream();
-                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream));
-                    StringBuilder response = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        response.append(line);
-                    }
-                    reader.close();
-                    inputStream.close();
-                    
-                    String jsonResponse = response.toString();
-                    Log.d(TAG, "Document retrieved: " + jsonResponse);
-                    
-                    // Parse document to get filePath
-                    JsonObject doc = JsonParser.parseString(jsonResponse).getAsJsonObject();
-                    String filePath = null;
-                    if (doc.has("filePath") && !doc.get("filePath").isJsonNull()) {
-                        filePath = doc.get("filePath").getAsString();
-                    }
-                    
-                    // Generate filename if not provided
-                    String finalFilename = filename;
-                    if (finalFilename == null || finalFilename.isEmpty()) {
-                        // Use title from document or generate from file ID
-                        String title = doc.has("title") && !doc.get("title").isJsonNull() 
-                            ? doc.get("title").getAsString() : "note";
-                        // Extract file ID from filePath (format: bucketId/fileId)
-                        if (filePath != null && filePath.contains("/")) {
-                            String fileId = filePath.substring(filePath.lastIndexOf("/") + 1);
-                            finalFilename = title + "_" + fileId + ".pdf"; // default to pdf, will be corrected by content type
-                        } else {
-                            finalFilename = title + ".pdf";
-                        }
-                        Log.d(TAG, "Generated filename: " + finalFilename);
-                    }
-                    
-                    if (filePath != null && !filePath.isEmpty()) {
-                        // Download from Appwrite Storage
-                        File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-                        storageService.downloadFile(filePath, finalFilename, downloadsDir, new StorageService.DownloadCallback() {
-                            @Override
-                            public void onSuccess(String localFilePath) {
-                                callback.onSuccess(localFilePath);
-                            }
-
-                            @Override
-                            public void onProgress(double progress) {}
-
-                            @Override
-                            public void onError(String error) {
-                                callback.onError("Download failed: " + error);
-                            }
-                        });
+                // Generate filename if not provided
+                String finalFilename = filename;
+                if (finalFilename == null || finalFilename.isEmpty()) {
+                    String title = noteDto.getTitle() != null && !noteDto.getTitle().isEmpty() 
+                        ? noteDto.getTitle() : "note";
+                    if (filePath != null && filePath.contains("/")) {
+                        String fileId = filePath.substring(filePath.lastIndexOf("/") + 1);
+                        finalFilename = title + "_" + fileId + ".pdf";
                     } else {
-                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                            callback.onError("File path not found in document");
-                        });
+                        finalFilename = title + ".pdf";
                     }
-                } else {
-                    InputStream errorStream = connection.getErrorStream();
-                    final String errorMessage;
-                    if (errorStream != null) {
-                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
-                        StringBuilder error = new StringBuilder();
-                        String line;
-                        while ((line = reader.readLine()) != null) {
-                            error.append(line);
-                        }
-                        errorMessage = "HTTP error code: " + responseCode + " - " + error.toString();
-                        reader.close();
-                    } else {
-                        errorMessage = "HTTP error code: " + responseCode;
-                    }
-                    final String finalErrorMessage = errorMessage;
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError("Failed to get document: " + finalErrorMessage);
-                    });
+                    Log.d(TAG, "Generated filename: " + finalFilename);
                 }
-                connection.disconnect();
-            } catch (Exception e) {
-                Log.e(TAG, "Error downloading note", e);
-                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                    callback.onError("Error: " + e.getMessage());
-                });
+                
+                if (filePath != null && !filePath.isEmpty()) {
+                    // Download from StorageService
+                    File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    storageService.downloadFile(filePath, finalFilename, downloadsDir, new StorageService.DownloadCallback() {
+                        @Override
+                        public void onSuccess(String localFilePath) {
+                            callback.onSuccess(localFilePath);
+                        }
+
+                        @Override
+                        public void onProgress(double progress) {}
+
+                        @Override
+                        public void onError(String error) {
+                            callback.onError("Download failed: " + error);
+                        }
+                    });
+                } else {
+                    callback.onError("File path not found in document");
+                }
+            }
+
+            @Override
+            public void onError(String error) {
+                callback.onError("Failed to get document: " + error);
             }
         });
     }
