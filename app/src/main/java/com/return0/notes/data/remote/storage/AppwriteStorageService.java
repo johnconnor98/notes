@@ -30,8 +30,7 @@ public class AppwriteStorageService implements StorageService {
         this.context = context.getApplicationContext();
         client = new Client(context)
             .setEndpoint(ENDPOINT)
-            .setProject(PROJECT_ID)
-            .setKey(API_KEY);
+            .setProject(PROJECT_ID);
         
         storage = new Storage(client);
         Log.d(TAG, "AppwriteStorageService initialized");
