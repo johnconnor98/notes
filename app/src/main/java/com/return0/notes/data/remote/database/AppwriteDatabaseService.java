@@ -54,10 +54,9 @@ public class AppwriteDatabaseService implements DatabaseService {
                 Log.d(TAG, "Database URL: " + url);
                 
                 // Build queries array - Appwrite uses Query.equal(), Query.search(), etc.
-                // Format: equal("field","value") or search("field","value")
+                // Format: equal("field","value")
                 List<String> queryStrings = new ArrayList<>();
                 if (subject != null && !subject.isEmpty()) {
-                    // Use equal for exact match, or search for partial match
                     queryStrings.add("equal(\"subject\",\"" + escapeJsonString(subject) + "\")");
                 }
                 if (semester != null && !semester.isEmpty()) {
@@ -70,27 +69,24 @@ public class AppwriteDatabaseService implements DatabaseService {
                     queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                // Build query parameters - Appwrite REST API expects queries as array
-                // Format: queries=["equal(\"field\",\"value\")"] as a JSON array string
+                HttpURLConnection connection;
                 if (!queryStrings.isEmpty()) {
-                    // Build JSON array - each query is a JSON string
-                    JsonArray queriesArray = new JsonArray();
-                    for (String query : queryStrings) {
-                        queriesArray.add(query);
+                    // Use array notation: queries[]=value1&queries[]=value2
+                    // Brackets should NOT be URL encoded
+                    StringBuilder queryParams = new StringBuilder();
+                    for (int i = 0; i < queryStrings.size(); i++) {
+                        if (i > 0) queryParams.append("&");
+                        try {
+                            // Encode only the query value, not the brackets
+                            String encodedQuery = URLEncoder.encode(queryStrings.get(i), "UTF-8");
+                            queryParams.append("queries[]=").append(encodedQuery);
+                        } catch (java.io.UnsupportedEncodingException e) {
+                            Log.e(TAG, "Error encoding query", e);
+                            queryParams.append("queries[]=").append(queryStrings.get(i));
+                        }
                     }
-                    String queriesJson = gson.toJson(queriesArray);
-                    Log.d(TAG, "Queries JSON: " + queriesJson);
-                    
-                    try {
-                        // URL encode the entire JSON array string
-                        String encoded = URLEncoder.encode(queriesJson, "UTF-8");
-                        url += "&queries=" + encoded;
-                        Log.d(TAG, "Encoded queries: " + encoded);
-                    } catch (java.io.UnsupportedEncodingException e) {
-                        Log.e(TAG, "Error encoding queries", e);
-                        url += "&queries=" + queriesJson;
-                    }
-                    Log.d(TAG, "Full URL length: " + url.length() + " chars");
+                    url += "&" + queryParams.toString();
+                    Log.d(TAG, "Query params: " + queryParams.toString());
                 }
                 
                 HttpURLConnection connection = createConnection(url, "GET");
