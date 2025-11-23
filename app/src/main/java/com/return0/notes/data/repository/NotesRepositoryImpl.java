@@ -377,10 +377,16 @@ public class NotesRepositoryImpl implements NotesRepository {
                         }
                         errorMessage = "HTTP error code: " + responseCode + " - " + error.toString();
                         reader.close();
+                        
+                        // Log detailed error information
+                        Log.e(TAG, "Failed to create document in Appwrite Database: " + errorMessage);
+                        Log.e(TAG, "Attempted to send attributes: title, subject, semester, branch, college");
+                        Log.e(TAG, "If you see 'Unknown attribute' errors, please add these attributes in Appwrite Console:");
+                        Log.e(TAG, "  Go to: Database -> Your Collection -> Attributes -> Create Attribute");
+                        Log.e(TAG, "  Required attributes: title (String), subject (String), semester (String), branch (String), college (String)");
                     } else {
                         errorMessage = "HTTP error code: " + responseCode;
                     }
-                    Log.e(TAG, "Failed to create document in Appwrite Database: " + errorMessage);
                     final String finalErrorMessage = errorMessage;
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                         callback.onError("Database save failed: " + finalErrorMessage);
