@@ -482,6 +482,10 @@ public class AppwriteStorageService implements StorageService {
                     throw new Exception("HTTP error code: " + connection.getResponseCode());
                 }
                 
+                // Get content type before reading the stream
+                String contentType = connection.getContentType();
+                Log.d(TAG, "Content-Type: " + contentType);
+                
                 InputStream inputStream = connection.getInputStream();
                 byte[] buffer = new byte[8192];
                 java.io.ByteArrayOutputStream byteArrayOutputStream = new java.io.ByteArrayOutputStream();
@@ -496,7 +500,22 @@ public class AppwriteStorageService implements StorageService {
                 
                 Log.d(TAG, "Download successful - Bytes downloaded: " + fileBytes.length + ", File ID: " + fileId);
                 
-                java.io.File file = new java.io.File(downloadsDir, localFilename);
+                // Generate filename if not provided
+                String finalFilename = localFilename;
+                if (finalFilename == null || finalFilename.isEmpty()) {
+                    // Use file ID with extension based on content type
+                    String extension = "pdf"; // default
+                    if (contentType != null) {
+                        if (contentType.contains("image/png")) extension = "png";
+                        else if (contentType.contains("image/jpeg") || contentType.contains("image/jpg")) extension = "jpg";
+                        else if (contentType.contains("application/pdf")) extension = "pdf";
+                        else if (contentType.contains("application/zip")) extension = "zip";
+                    }
+                    finalFilename = "note_" + fileId + "." + extension;
+                    Log.d(TAG, "Generated filename: " + finalFilename);
+                }
+                
+                java.io.File file = new java.io.File(downloadsDir, finalFilename);
                 FileOutputStream fileOutputStream = new FileOutputStream(file);
                 fileOutputStream.write(fileBytes);
                 fileOutputStream.close();

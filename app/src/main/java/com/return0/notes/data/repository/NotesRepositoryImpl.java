@@ -461,12 +461,31 @@ public class NotesRepositoryImpl implements NotesRepository {
                     
                     // Parse document to get filePath
                     JsonObject doc = JsonParser.parseString(jsonResponse).getAsJsonObject();
-                    String filePath = doc.has("filePath") ? doc.get("filePath").getAsString() : null;
+                    String filePath = null;
+                    if (doc.has("filePath") && !doc.get("filePath").isJsonNull()) {
+                        filePath = doc.get("filePath").getAsString();
+                    }
+                    
+                    // Generate filename if not provided
+                    String finalFilename = filename;
+                    if (finalFilename == null || finalFilename.isEmpty()) {
+                        // Use title from document or generate from file ID
+                        String title = doc.has("title") && !doc.get("title").isJsonNull() 
+                            ? doc.get("title").getAsString() : "note";
+                        // Extract file ID from filePath (format: bucketId/fileId)
+                        if (filePath != null && filePath.contains("/")) {
+                            String fileId = filePath.substring(filePath.lastIndexOf("/") + 1);
+                            finalFilename = title + "_" + fileId + ".pdf"; // default to pdf, will be corrected by content type
+                        } else {
+                            finalFilename = title + ".pdf";
+                        }
+                        Log.d(TAG, "Generated filename: " + finalFilename);
+                    }
                     
                     if (filePath != null && !filePath.isEmpty()) {
                         // Download from Appwrite Storage
                         File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-                        storageService.downloadFile(filePath, filename, downloadsDir, new StorageService.DownloadCallback() {
+                        storageService.downloadFile(filePath, finalFilename, downloadsDir, new StorageService.DownloadCallback() {
                             @Override
                             public void onSuccess(String localFilePath) {
                                 callback.onSuccess(localFilePath);
