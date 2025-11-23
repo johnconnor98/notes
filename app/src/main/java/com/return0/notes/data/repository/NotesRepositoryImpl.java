@@ -286,7 +286,7 @@ public class NotesRepositoryImpl implements NotesRepository {
         CompletableFuture.runAsync(() -> {
             try {
                 String documentId = java.util.UUID.randomUUID().toString();
-                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents?documentId=" + documentId + "&project=" + PROJECT_ID;
+                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents?project=" + PROJECT_ID;
                 
                 Log.d(TAG, "Creating document in Appwrite Database: " + url);
                 
@@ -301,11 +301,12 @@ public class NotesRepositoryImpl implements NotesRepository {
                 data.addProperty("filePath", filePath != null ? filePath : "");
                 data.addProperty("thumbnailPath", thumbPath != null ? thumbPath : "");
                 
-                // Appwrite expects form-urlencoded with "data" parameter containing JSON string
+                // Appwrite expects form-urlencoded with "documentId" and "data" parameters
                 String dataJson = gson.toJson(data);
                 Log.d(TAG, "Document data JSON: " + dataJson);
                 
-                String formData = "data=" + java.net.URLEncoder.encode(dataJson, "UTF-8");
+                String formData = "documentId=" + java.net.URLEncoder.encode(documentId, "UTF-8") + 
+                                 "&data=" + java.net.URLEncoder.encode(dataJson, "UTF-8");
                 
                 java.net.URL appwriteUrl = new java.net.URL(url);
                 java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
