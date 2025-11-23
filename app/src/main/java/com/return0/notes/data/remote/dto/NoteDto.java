@@ -45,6 +45,9 @@ public class NoteDto {
     @SerializedName("thumbnail_url")
     private String thumbnailUrl;
 
+    @SerializedName("thumbnailPath")
+    private String thumbnailPath;
+
     public String getId() {
         return id;
     }
@@ -155,6 +158,14 @@ public class NoteDto {
 
     public void setThumbnailUrl(String thumbnailUrl) {
         this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public String getThumbnailPath() {
+        return thumbnailPath;
+    }
+
+    public void setThumbnailPath(String thumbnailPath) {
+        this.thumbnailPath = thumbnailPath;
     }
 }
 

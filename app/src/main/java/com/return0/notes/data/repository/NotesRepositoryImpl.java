@@ -4,10 +4,13 @@ import android.content.Context;
 import android.os.Environment;
 import android.util.Log;
 import com.return0.notes.data.mapper.NoteMapper;
-import com.return0.notes.data.remote.ApiService;
-import com.return0.notes.data.remote.ApiClient;
 import com.return0.notes.data.remote.storage.StorageService;
 import com.return0.notes.data.remote.storage.AppwriteStorageService;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.return0.notes.data.remote.dto.NoteDto;
 import com.return0.notes.domain.model.Note;
 import com.return0.notes.domain.model.SearchFilters;
@@ -22,60 +25,31 @@ import retrofit2.Response;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 public class NotesRepositoryImpl implements NotesRepository {
     private static final String TAG = "NotesRepository";
-    private final ApiService apiService;
+    private static final String ENDPOINT = "https://fra.cloud.appwrite.io/v1";
+    private static final String PROJECT_ID = "6922970a001ab5faef56";
+    private static final String DATABASE_ID = "69231061001de8342953";
+    private static final String COLLECTION_ID = "notes_list";
+    
     private final Context context;
     private final StorageService storageService;
+    private final Gson gson = new Gson();
 
     public NotesRepositoryImpl(Context context) {
         this.context = context.getApplicationContext();
-        this.apiService = ApiClient.getApiService();
         this.storageService = AppwriteStorageService.getInstance(context);
     }
 
     @Override
     public void loadNotes(LoadNotesCallback callback) {
-        Log.d(TAG, "=== LOADING ALL NOTES ===");
-        apiService.getNotes(null, null, null, null).enqueue(new Callback<List<NoteDto>>() {
-            @Override
-            public void onResponse(Call<List<NoteDto>> call, Response<List<NoteDto>> response) {
-                Log.d(TAG, "Load Notes - Response code: " + response.code());
-                Log.d(TAG, "Load Notes - Response successful: " + response.isSuccessful());
-                
-                if (response.isSuccessful() && response.body() != null) {
-                    List<NoteDto> noteDtos = response.body();
-                    Log.d(TAG, "Load Notes - Number of notes: " + noteDtos.size());
-                    
-                    // Log raw response
-                    try {
-                        okhttp3.Response rawResponse = response.raw();
-                        if (rawResponse != null && rawResponse.body() != null) {
-                            String responseBody = rawResponse.peekBody(1024 * 1024).string();
-                            Log.d(TAG, "Load Notes - Raw JSON: " + responseBody);
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error reading raw response: " + e.getMessage());
-                    }
-                    
-                    logAllDatabaseData(noteDtos, "Load Notes");
-                    List<Note> notes = NoteMapper.toDomainList(noteDtos);
-                    callback.onSuccess(notes);
-                } else {
-                    Log.e(TAG, "Load Notes failed: " + response.message());
-                    callback.onError("Failed to load notes: " + response.message());
-                }
-            }
-
-            @Override
-            public void onFailure(Call<List<NoteDto>> call, Throwable t) {
-                Log.e(TAG, "Load Notes network error: " + t.getMessage(), t);
-                callback.onError("Network error: " + t.getMessage());
-            }
-        });
+        Log.d(TAG, "=== LOADING ALL NOTES FROM APPWRITE DATABASE ===");
+        loadNotesFromAppwrite(null, null, null, null, callback);
     }
 
     @Override
@@ -92,51 +66,113 @@ public class NotesRepositoryImpl implements NotesRepository {
         Log.d(TAG, "Branch: " + (branch != null ? branch : "null"));
         Log.d(TAG, "College: " + (college != null ? college : "null"));
         
-        apiService.getNotes(subject, semester, branch, college).enqueue(new Callback<List<NoteDto>>() {
-            @Override
-            public void onResponse(Call<List<NoteDto>> call, Response<List<NoteDto>> response) {
-                Log.d(TAG, "=== API RESPONSE RECEIVED ===");
-                Log.d(TAG, "Response code: " + response.code());
-                Log.d(TAG, "Response successful: " + response.isSuccessful());
-                Log.d(TAG, "Response body is null: " + (response.body() == null));
-                
-                if (response.isSuccessful() && response.body() != null) {
-                    List<NoteDto> noteDtos = response.body();
-                    Log.d(TAG, "Number of notes received: " + noteDtos.size());
-                    
-                    // Log raw response body
-                    try {
-                        okhttp3.Response rawResponse = response.raw();
-                        if (rawResponse != null && rawResponse.body() != null) {
-                            String responseBody = rawResponse.peekBody(1024 * 1024).string();
-                            Log.d(TAG, "Raw JSON response (first 1MB): " + responseBody);
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error reading raw response: " + e.getMessage());
-                    }
-                    
-                    logAllDatabaseData(noteDtos, "Search Results");
-                    List<Note> notes = NoteMapper.toDomainList(noteDtos);
-                    Log.d(TAG, "Converted to domain models: " + notes.size());
-                    callback.onSuccess(notes);
-                } else {
-                    Log.e(TAG, "Search failed - Code: " + response.code() + ", Message: " + response.message());
-                    if (response.errorBody() != null) {
-                        try {
-                            String errorBody = response.errorBody().string();
-                            Log.e(TAG, "Error body: " + errorBody);
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error reading error body: " + e.getMessage());
-                        }
-                    }
-                    callback.onError("Search failed: " + response.message());
+        loadNotesFromAppwrite(subject, semester, branch, college, callback);
+    }
+    
+    private void loadNotesFromAppwrite(String subject, String semester, String branch, String college, LoadNotesCallback callback) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Build query parameters
+                List<String> queries = new ArrayList<>();
+                if (subject != null && !subject.isEmpty()) {
+                    queries.add("equal(\"subject\",\"" + subject + "\")");
                 }
-            }
-
-            @Override
-            public void onFailure(Call<List<NoteDto>> call, Throwable t) {
-                Log.e(TAG, "Network error during search: " + t.getMessage(), t);
-                callback.onError("Network error: " + t.getMessage());
+                if (semester != null && !semester.isEmpty()) {
+                    queries.add("equal(\"semester\",\"" + semester + "\")");
+                }
+                if (branch != null && !branch.isEmpty()) {
+                    queries.add("equal(\"branch\",\"" + branch + "\")");
+                }
+                if (college != null && !college.isEmpty()) {
+                    queries.add("equal(\"college\",\"" + college + "\")");
+                }
+                
+                String queryParam = String.join(",", queries);
+                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
+                if (!queryParam.isEmpty()) {
+                    url += "?queries=[" + queryParam + "]";
+                }
+                url += "&project=" + PROJECT_ID;
+                
+                Log.d(TAG, "Appwrite Database URL: " + url);
+                
+                java.net.URL appwriteUrl = new java.net.URL(url);
+                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+                connection.connect();
+                
+                int responseCode = connection.getResponseCode();
+                Log.d(TAG, "Appwrite Database Response Code: " + responseCode);
+                
+                if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                    InputStream inputStream = connection.getInputStream();
+                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    reader.close();
+                    inputStream.close();
+                    
+                    String jsonResponse = response.toString();
+                    Log.d(TAG, "Raw JSON response from Appwrite: " + jsonResponse);
+                    
+                    // Parse JSON response
+                    JsonObject jsonObject = JsonParser.parseString(jsonResponse).getAsJsonObject();
+                    JsonArray documentsArray = jsonObject.getAsJsonArray("documents");
+                    
+                    List<NoteDto> noteDtos = new ArrayList<>();
+                    if (documentsArray != null) {
+                        for (JsonElement element : documentsArray) {
+                            JsonObject doc = element.getAsJsonObject();
+                            NoteDto noteDto = new NoteDto();
+                            noteDto.setId(doc.has("$id") ? doc.get("$id").getAsString() : "");
+                            noteDto.setNotesid(doc.has("notesid") ? doc.get("notesid").getAsString() : "");
+                            noteDto.setTitle(doc.has("title") ? doc.get("title").getAsString() : "");
+                            noteDto.setSubject(doc.has("subject") ? doc.get("subject").getAsString() : "");
+                            noteDto.setSemester(doc.has("semester") ? doc.get("semester").getAsString() : "");
+                            noteDto.setBranch(doc.has("branch") ? doc.get("branch").getAsString() : "");
+                            noteDto.setCollege(doc.has("college") ? doc.get("college").getAsString() : "");
+                            noteDto.setFilePath(doc.has("filePath") ? doc.get("filePath").getAsString() : "");
+                            noteDto.setThumbnailPath(doc.has("thumbnailPath") ? doc.get("thumbnailPath").getAsString() : "");
+                            noteDto.setThumbnailUrl(doc.has("thumbnailPath") ? doc.get("thumbnailPath").getAsString() : "");
+                            noteDtos.add(noteDto);
+                        }
+                    }
+                    
+                    Log.d(TAG, "Parsed " + noteDtos.size() + " documents from Appwrite");
+                    logAllDatabaseData(noteDtos, "Appwrite Database Results");
+                    
+                    List<Note> notes = NoteMapper.toDomainList(noteDtos);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        callback.onSuccess(notes);
+                    });
+                } else {
+                    InputStream errorStream = connection.getErrorStream();
+                    String errorMessage = "HTTP error code: " + responseCode;
+                    if (errorStream != null) {
+                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
+                        StringBuilder error = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            error.append(line);
+                        }
+                        errorMessage = error.toString();
+                        reader.close();
+                    }
+                    Log.e(TAG, "Appwrite Database error: " + errorMessage);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        callback.onError("Database error: " + errorMessage);
+                    });
+                }
+                connection.disconnect();
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading notes from Appwrite Database", e);
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    callback.onError("Error: " + e.getMessage());
+                });
             }
         });
     }
@@ -233,36 +269,79 @@ public class NotesRepositoryImpl implements NotesRepository {
     private void sendMetadataToBackend(String title, String subject, String semester, String branch, 
                                       String college, String fileUrl, String filePath, String thumbUrl, 
                                       String thumbPath, String originalFilename, UploadCallback callback) {
-        Log.d(TAG, "=== SENDING DATA TO DATABASE ===");
+        Log.d(TAG, "=== SENDING DATA TO APPWRITE DATABASE ===");
         Log.d(TAG, "Title: " + title);
         Log.d(TAG, "Subject: " + (subject != null ? subject : "NULL"));
         Log.d(TAG, "Semester: " + (semester != null ? semester : "NULL"));
         Log.d(TAG, "Branch: " + (branch != null ? branch : "NULL"));
         Log.d(TAG, "College: " + (college != null ? college : "NULL"));
-        Log.d(TAG, "File URL: " + fileUrl);
         Log.d(TAG, "File Path: " + filePath);
+        Log.d(TAG, "Thumbnail Path: " + thumbPath);
         Log.d(TAG, "=================================");
         
-        RequestBody titleBody = RequestBody.create(MediaType.parse("text/plain"), title);
-        RequestBody subjectBody = RequestBody.create(MediaType.parse("text/plain"), subject != null ? subject : "");
-        RequestBody semesterBody = RequestBody.create(MediaType.parse("text/plain"), semester != null ? semester : "");
-        RequestBody branchBody = RequestBody.create(MediaType.parse("text/plain"), branch != null ? branch : "");
-        RequestBody collegeBody = RequestBody.create(MediaType.parse("text/plain"), college != null ? college : "");
-        RequestBody fileUrlBody = RequestBody.create(MediaType.parse("text/plain"), fileUrl);
-        RequestBody filePathBody = RequestBody.create(MediaType.parse("text/plain"), filePath);
-        RequestBody thumbUrlBody = thumbUrl != null ? RequestBody.create(MediaType.parse("text/plain"), thumbUrl) : RequestBody.create(MediaType.parse("text/plain"), "");
-
-        apiService.uploadNoteMetadata(titleBody, subjectBody, semesterBody, branchBody, collegeBody, 
-                fileUrlBody, filePathBody, thumbUrlBody).enqueue(new Callback<NoteDto>() {
-            @Override
-            public void onResponse(Call<NoteDto> call, Response<NoteDto> response) {
-                Log.d(TAG, "=== DATABASE SAVE RESPONSE ===");
-                Log.d(TAG, "Response code: " + response.code());
-                Log.d(TAG, "Response successful: " + response.isSuccessful());
+        CompletableFuture.runAsync(() -> {
+            try {
+                String documentId = java.util.UUID.randomUUID().toString();
+                String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents?documentId=" + documentId + "&project=" + PROJECT_ID;
                 
-                if (response.isSuccessful() && response.body() != null) {
-                    NoteDto noteDto = response.body();
-                    Log.d(TAG, "Saved to database:");
+                Log.d(TAG, "Creating document in Appwrite Database: " + url);
+                
+                // Build JSON payload
+                JsonObject data = new JsonObject();
+                data.addProperty("notesid", documentId);
+                data.addProperty("title", title);
+                data.addProperty("subject", subject != null ? subject : "");
+                data.addProperty("semester", semester != null ? semester : "");
+                data.addProperty("branch", branch != null ? branch : "");
+                data.addProperty("college", college != null ? college : "");
+                data.addProperty("filePath", filePath != null ? filePath : "");
+                data.addProperty("thumbnailPath", thumbPath != null ? thumbPath : "");
+                
+                String jsonPayload = gson.toJson(data);
+                Log.d(TAG, "Document data JSON: " + jsonPayload);
+                
+                java.net.URL appwriteUrl = new java.net.URL(url);
+                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+                connection.setDoOutput(true);
+                
+                OutputStream outputStream = connection.getOutputStream();
+                outputStream.write(jsonPayload.getBytes("UTF-8"));
+                outputStream.flush();
+                outputStream.close();
+                
+                int responseCode = connection.getResponseCode();
+                Log.d(TAG, "Appwrite Database Create Response Code: " + responseCode);
+                
+                if (responseCode == java.net.HttpURLConnection.HTTP_CREATED || responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                    InputStream inputStream = connection.getInputStream();
+                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(inputStream));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    reader.close();
+                    inputStream.close();
+                    
+                    String jsonResponse = response.toString();
+                    Log.d(TAG, "Document created - Response: " + jsonResponse);
+                    
+                    // Parse response
+                    JsonObject responseObj = JsonParser.parseString(jsonResponse).getAsJsonObject();
+                    NoteDto noteDto = new NoteDto();
+                    noteDto.setId(responseObj.has("$id") ? responseObj.get("$id").getAsString() : documentId);
+                    noteDto.setNotesid(responseObj.has("notesid") ? responseObj.get("notesid").getAsString() : documentId);
+                    noteDto.setTitle(responseObj.has("title") ? responseObj.get("title").getAsString() : title);
+                    noteDto.setSubject(responseObj.has("subject") ? responseObj.get("subject").getAsString() : (subject != null ? subject : ""));
+                    noteDto.setSemester(responseObj.has("semester") ? responseObj.get("semester").getAsString() : (semester != null ? semester : ""));
+                    noteDto.setBranch(responseObj.has("branch") ? responseObj.get("branch").getAsString() : (branch != null ? branch : ""));
+                    noteDto.setCollege(responseObj.has("college") ? responseObj.get("college").getAsString() : (college != null ? college : ""));
+                    noteDto.setFilePath(responseObj.has("filePath") ? responseObj.get("filePath").getAsString() : filePath);
+                    
+                    Log.d(TAG, "✓ Saved to Appwrite Database:");
                     Log.d(TAG, "  ID: " + noteDto.getId());
                     Log.d(TAG, "  NotesID: " + noteDto.getNotesid());
                     Log.d(TAG, "  Title: " + noteDto.getTitle());
@@ -270,27 +349,35 @@ public class NotesRepositoryImpl implements NotesRepository {
                     Log.d(TAG, "  Semester: " + noteDto.getSemester());
                     Log.d(TAG, "  Branch: " + noteDto.getBranch());
                     Log.d(TAG, "  College: " + noteDto.getCollege());
-                    Log.d(TAG, "=================================");
                     
                     Note note = NoteMapper.toDomain(noteDto);
-                    callback.onSuccess(note);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        callback.onSuccess(note);
+                    });
                 } else {
-                    Log.e(TAG, "Database save failed: " + response.message());
-                    if (response.errorBody() != null) {
-                        try {
-                            String errorBody = response.errorBody().string();
-                            Log.e(TAG, "Error body: " + errorBody);
-                        } catch (Exception e) {
-                            Log.e(TAG, "Error reading error body: " + e.getMessage());
+                    InputStream errorStream = connection.getErrorStream();
+                    String errorMessage = "HTTP error code: " + responseCode;
+                    if (errorStream != null) {
+                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(errorStream));
+                        StringBuilder error = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            error.append(line);
                         }
+                        errorMessage = error.toString();
+                        reader.close();
                     }
-                    callback.onError("Upload failed: " + response.message());
+                    Log.e(TAG, "Failed to create document in Appwrite Database: " + errorMessage);
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        callback.onError("Database save failed: " + errorMessage);
+                    });
                 }
-            }
-
-            @Override
-            public void onFailure(Call<NoteDto> call, Throwable t) {
-                callback.onError("Network error: " + t.getMessage());
+                connection.disconnect();
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving to Appwrite Database", e);
+                new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    callback.onError("Error: " + e.getMessage());
+                });
             }
         });
     }
