@@ -55,7 +55,6 @@ public class AppwriteDatabaseService implements DatabaseService {
                 
                 // Build queries array - Appwrite REST API format
                 // Format: equal("field","value") for exact match
-                // Note: search() requires fields to be indexed - use equal() for now
                 List<String> queryStrings = new ArrayList<>();
                 if (subject != null && !subject.isEmpty()) {
                     queryStrings.add("equal(\"subject\",\"" + escapeJsonString(subject) + "\")");
@@ -70,36 +69,35 @@ public class AppwriteDatabaseService implements DatabaseService {
                     queryStrings.add("equal(\"college\",\"" + escapeJsonString(college) + "\")");
                 }
                 
-                // Build query parameters - Appwrite REST API expects queries as URL parameter
-                // Format: queries=["equal(\"field\",\"value\")"] as JSON array string
-                // Appwrite expects the queries parameter to be a JSON array of strings
+                HttpURLConnection connection;
+                
                 if (!queryStrings.isEmpty()) {
-                    // Use Gson to properly format the JSON array
-                    // Gson will handle escaping quotes in the query strings automatically
+                    // Use POST method with queries in request body (JSON format)
+                    // This is more reliable than URL-encoded query parameters
+                    connection = createConnection(url, "POST");
+                    connection.setRequestProperty("Content-Type", "application/json");
+                    connection.setDoOutput(true);
+                    
+                    // Build JSON request body with queries array
+                    JsonObject requestBody = new JsonObject();
                     JsonArray queriesArray = new JsonArray();
                     for (String query : queryStrings) {
                         queriesArray.add(query);
                     }
-                    String queriesJson = gson.toJson(queriesArray);
-                    Log.d(TAG, "Queries JSON: " + queriesJson);
+                    requestBody.add("queries", queriesArray);
                     
-                    // Appwrite REST API may need the brackets to remain unencoded
-                    // Preserve brackets during encoding
-                    String temp = queriesJson.replace("[", "___OPEN_BRACKET___")
-                                             .replace("]", "___CLOSE_BRACKET___");
-                    try {
-                        String encoded = URLEncoder.encode(temp, "UTF-8");
-                        encoded = encoded.replace("___OPEN_BRACKET___", "[")
-                                        .replace("___CLOSE_BRACKET___", "]");
-                        url += "&queries=" + encoded;
-                        Log.d(TAG, "Encoded queries (brackets preserved): " + encoded);
-                    } catch (java.io.UnsupportedEncodingException e) {
-                        Log.e(TAG, "Error encoding queries", e);
-                        url += "&queries=" + queriesJson;
-                    }
+                    String jsonBody = gson.toJson(requestBody);
+                    Log.d(TAG, "Request body with queries: " + jsonBody);
+                    
+                    OutputStream outputStream = connection.getOutputStream();
+                    outputStream.write(jsonBody.getBytes("UTF-8"));
+                    outputStream.flush();
+                    outputStream.close();
+                } else {
+                    // No queries, use simple GET
+                    connection = createConnection(url, "GET");
                 }
                 
-                HttpURLConnection connection = createConnection(url, "GET");
                 connection.connect();
                 
                 int responseCode = connection.getResponseCode();
