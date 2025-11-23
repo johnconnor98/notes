@@ -290,7 +290,7 @@ public class NotesRepositoryImpl implements NotesRepository {
                 
                 Log.d(TAG, "Creating document in Appwrite Database: " + url);
                 
-                // Build JSON payload
+                // Build data object
                 JsonObject data = new JsonObject();
                 data.addProperty("notesid", documentId);
                 data.addProperty("title", title);
@@ -301,18 +301,21 @@ public class NotesRepositoryImpl implements NotesRepository {
                 data.addProperty("filePath", filePath != null ? filePath : "");
                 data.addProperty("thumbnailPath", thumbPath != null ? thumbPath : "");
                 
-                String jsonPayload = gson.toJson(data);
-                Log.d(TAG, "Document data JSON: " + jsonPayload);
+                // Appwrite expects form-urlencoded with "data" parameter containing JSON string
+                String dataJson = gson.toJson(data);
+                Log.d(TAG, "Document data JSON: " + dataJson);
+                
+                String formData = "data=" + java.net.URLEncoder.encode(dataJson, "UTF-8");
                 
                 java.net.URL appwriteUrl = new java.net.URL(url);
                 java.net.HttpURLConnection connection = (java.net.HttpURLConnection) appwriteUrl.openConnection();
                 connection.setRequestMethod("POST");
-                connection.setRequestProperty("Content-Type", "application/json");
+                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
                 connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
                 connection.setDoOutput(true);
                 
                 OutputStream outputStream = connection.getOutputStream();
-                outputStream.write(jsonPayload.getBytes("UTF-8"));
+                outputStream.write(formData.getBytes("UTF-8"));
                 outputStream.flush();
                 outputStream.close();
                 
