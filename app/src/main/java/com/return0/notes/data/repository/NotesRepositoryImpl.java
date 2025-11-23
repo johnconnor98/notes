@@ -2,6 +2,7 @@ package com.return0.notes.data.repository;
 
 import android.content.Context;
 import android.os.Environment;
+import android.util.Log;
 import com.return0.notes.data.mapper.NoteMapper;
 import com.return0.notes.data.remote.ApiService;
 import com.return0.notes.data.remote.ApiClient;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 public class NotesRepositoryImpl implements NotesRepository {
+    private static final String TAG = "NotesRepository";
     private final ApiService apiService;
     private final Context context;
     private final StorageService storageService;
@@ -41,7 +43,9 @@ public class NotesRepositoryImpl implements NotesRepository {
             @Override
             public void onResponse(Call<List<NoteDto>> call, Response<List<NoteDto>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    List<Note> notes = NoteMapper.toDomainList(response.body());
+                    List<NoteDto> noteDtos = response.body();
+                    logAllDatabaseData(noteDtos, "Load Notes");
+                    List<Note> notes = NoteMapper.toDomainList(noteDtos);
                     callback.onSuccess(notes);
                 } else {
                     callback.onError("Failed to load notes: " + response.message());
@@ -58,27 +62,66 @@ public class NotesRepositoryImpl implements NotesRepository {
     @Override
     public void searchNotes(SearchFilters filters, LoadNotesCallback callback) {
         Map<String, String> filterMap = filters.getFilters();
-        apiService.getNotes(
-                filterMap.get("subject"),
-                filterMap.get("semester"),
-                filterMap.get("branch"),
-                filterMap.get("college")
-        ).enqueue(new Callback<List<NoteDto>>() {
+        String subject = filterMap.get("subject");
+        String semester = filterMap.get("semester");
+        String branch = filterMap.get("branch");
+        String college = filterMap.get("college");
+        
+        Log.d(TAG, "=== SEARCH REQUEST ===");
+        Log.d(TAG, "Subject: " + (subject != null ? subject : "null"));
+        Log.d(TAG, "Semester: " + (semester != null ? semester : "null"));
+        Log.d(TAG, "Branch: " + (branch != null ? branch : "null"));
+        Log.d(TAG, "College: " + (college != null ? college : "null"));
+        
+        apiService.getNotes(subject, semester, branch, college).enqueue(new Callback<List<NoteDto>>() {
             @Override
             public void onResponse(Call<List<NoteDto>> call, Response<List<NoteDto>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    List<Note> notes = NoteMapper.toDomainList(response.body());
+                    List<NoteDto> noteDtos = response.body();
+                    logAllDatabaseData(noteDtos, "Search Results");
+                    List<Note> notes = NoteMapper.toDomainList(noteDtos);
                     callback.onSuccess(notes);
                 } else {
+                    Log.e(TAG, "Search failed: " + response.message());
                     callback.onError("Search failed: " + response.message());
                 }
             }
 
             @Override
             public void onFailure(Call<List<NoteDto>> call, Throwable t) {
+                Log.e(TAG, "Network error during search: " + t.getMessage(), t);
                 callback.onError("Network error: " + t.getMessage());
             }
         });
+    }
+    
+    private void logAllDatabaseData(List<NoteDto> notes, String context) {
+        Log.d(TAG, "==================================================================================");
+        Log.d(TAG, "ALL DATABASE DATA - " + context);
+        Log.d(TAG, "==================================================================================");
+        Log.d(TAG, "Total records: " + notes.size());
+        Log.d(TAG, "----------------------------------------------------------------------------------");
+        
+        for (int i = 0; i < notes.size(); i++) {
+            NoteDto note = notes.get(i);
+            Log.d(TAG, "Record #" + (i + 1) + ":");
+            Log.d(TAG, "  ID: " + note.getId());
+            Log.d(TAG, "  Title: " + note.getTitle());
+            Log.d(TAG, "  Filename: " + note.getFilename());
+            Log.d(TAG, "  Upload Date: " + note.getUploadDate());
+            Log.d(TAG, "  File Size: " + note.getFileSize());
+            Log.d(TAG, "  Subject: " + (note.getSubject() != null ? note.getSubject() : "N/A"));
+            Log.d(TAG, "  Semester: " + (note.getSemester() != null ? note.getSemester() : "N/A"));
+            Log.d(TAG, "  Branch: " + (note.getBranch() != null ? note.getBranch() : "N/A"));
+            Log.d(TAG, "  College: " + (note.getCollege() != null ? note.getCollege() : "N/A"));
+            Log.d(TAG, "  Thumbnail: " + (note.getThumbnail() != null ? note.getThumbnail() : "N/A"));
+            Log.d(TAG, "  File URL: " + (note.getFileUrl() != null ? note.getFileUrl() : "N/A"));
+            Log.d(TAG, "  File Path: " + (note.getFilePath() != null ? note.getFilePath() : "N/A"));
+            Log.d(TAG, "  Thumbnail URL: " + (note.getThumbnailUrl() != null ? note.getThumbnailUrl() : "N/A"));
+            Log.d(TAG, "----------------------------------------------------------------------------------");
+        }
+        
+        Log.d(TAG, "==================================================================================");
     }
 
     @Override

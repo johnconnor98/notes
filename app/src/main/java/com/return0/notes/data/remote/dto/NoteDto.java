@@ -36,6 +36,12 @@ public class NoteDto {
     @SerializedName("file_path")
     private String filePath;
 
+    @SerializedName("file_url")
+    private String fileUrl;
+
+    @SerializedName("thumbnail_url")
+    private String thumbnailUrl;
+
     public String getId() {
         return id;
     }
@@ -122,6 +128,22 @@ public class NoteDto {
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
+    }
+
+    public String getFileUrl() {
+        return fileUrl;
+    }
+
+    public void setFileUrl(String fileUrl) {
+        this.fileUrl = fileUrl;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
     }
 }
 
