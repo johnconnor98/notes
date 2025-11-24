@@ -1,17 +1,23 @@
 package com.return0.notes.ui.viewmodel;
 
-import android.app.Application;
 import androidx.annotation.NonNull;
-import androidx.lifecycle.AndroidViewModel;
+import androidx.lifecycle.ViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import com.return0.notes.domain.model.Note;
 import com.return0.notes.domain.model.SearchFilters;
 import com.return0.notes.domain.repository.NotesRepository;
-import com.return0.notes.data.repository.NotesRepositoryImpl;
 import java.util.List;
 
-public class NotesViewModel extends AndroidViewModel {
+/**
+ * ViewModel following MVVM architecture principles:
+ * - Manages UI-related data in a lifecycle-aware way
+ * - Survives configuration changes
+ * - No reference to View (Activity/Fragment)
+ * - Exposes LiveData for reactive UI updates
+ * - Contains business logic for UI state management
+ */
+public class NotesViewModel extends ViewModel {
     private final NotesRepository repository;
     private final MutableLiveData<List<Note>> notes = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
@@ -19,9 +25,12 @@ public class NotesViewModel extends AndroidViewModel {
     private final MutableLiveData<String> successMessage = new MutableLiveData<>();
     private final MutableLiveData<String> downloadPath = new MutableLiveData<>();
 
-    public NotesViewModel(@NonNull Application application) {
-        super(application);
-        this.repository = new NotesRepositoryImpl(application);
+    /**
+     * Constructor with dependency injection.
+     * Repository is injected via ViewModelFactory for testability.
+     */
+    public NotesViewModel(@NonNull NotesRepository repository) {
+        this.repository = repository;
     }
 
     public LiveData<List<Note>> getNotes() {
@@ -82,8 +91,22 @@ public class NotesViewModel extends AndroidViewModel {
         });
     }
 
+    /**
+     * Uploads a note with validation.
+     * Business logic validation is handled here (MVVM pattern).
+     */
     public void uploadNote(String title, String subject, String semester, String branch, 
                           String college, String filePath, String thumbnailPath) {
+        // Validation
+        if (title == null || title.trim().isEmpty()) {
+            errorMessage.setValue("Please enter a title");
+            return;
+        }
+        if (filePath == null || filePath.trim().isEmpty()) {
+            errorMessage.setValue("Please select a file");
+            return;
+        }
+
         isLoading.setValue(true);
         errorMessage.setValue(null);
         successMessage.setValue(null);
@@ -93,7 +116,7 @@ public class NotesViewModel extends AndroidViewModel {
             public void onSuccess(Note note) {
                 isLoading.setValue(false);
                 successMessage.setValue("Note uploaded successfully");
-                loadNotes();
+                loadNotes(); // Refresh list after upload
             }
 
             @Override

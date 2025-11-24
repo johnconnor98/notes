@@ -15,6 +15,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.return0.notes.R;
 import com.return0.notes.domain.model.SearchFilters;
 import com.return0.notes.ui.viewmodel.NotesViewModel;
+import com.return0.notes.ui.viewmodel.NotesViewModelFactory;
 
 public class SearchActivity extends AppCompatActivity {
     private NotesViewModel viewModel;
@@ -48,7 +49,8 @@ public class SearchActivity extends AppCompatActivity {
     }
 
     private void setupViewModel() {
-        viewModel = new ViewModelProvider(this).get(NotesViewModel.class);
+        NotesViewModelFactory factory = new NotesViewModelFactory(getApplication());
+        viewModel = new ViewModelProvider(this, factory).get(NotesViewModel.class);
     }
 
     private void setupClickListeners() {

@@ -79,7 +79,8 @@ public class SplashActivity extends AppCompatActivity {
     }
 
     private void setupViewModel() {
-        viewModel = new ViewModelProvider(this).get(NotesViewModel.class);
+        NotesViewModelFactory factory = new NotesViewModelFactory(getApplication());
+        viewModel = new ViewModelProvider(this, factory).get(NotesViewModel.class);
     }
 
     private void loadData() {

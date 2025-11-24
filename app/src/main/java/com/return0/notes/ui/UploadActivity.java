@@ -18,6 +18,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.return0.notes.R;
 import com.return0.notes.ui.viewmodel.NotesViewModel;
+import com.return0.notes.ui.viewmodel.NotesViewModelFactory;
 import com.return0.notes.util.FileUtils;
 
 public class UploadActivity extends AppCompatActivity {
@@ -81,7 +82,8 @@ public class UploadActivity extends AppCompatActivity {
     }
 
     private void setupViewModel() {
-        viewModel = new ViewModelProvider(this).get(NotesViewModel.class);
+        NotesViewModelFactory factory = new NotesViewModelFactory(getApplication());
+        viewModel = new ViewModelProvider(this, factory).get(NotesViewModel.class);
     }
 
     private void setupClickListeners() {
@@ -132,11 +134,7 @@ public class UploadActivity extends AppCompatActivity {
         String branch = etBranch.getText().toString().trim();
         String college = etCollege.getText().toString().trim();
 
-        if (title.isEmpty()) {
-            Toast.makeText(this, "Please enter a title", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
+        // File handling - prepare file for upload
         if (selectedFileUri == null) {
             Toast.makeText(this, "Please select a file", Toast.LENGTH_SHORT).show();
             return;
@@ -156,6 +154,7 @@ public class UploadActivity extends AppCompatActivity {
             thumbnailPath = FileUtils.copyUriToCache(this, selectedThumbnailUri, thumbFileName);
         }
 
+        // Validation and upload logic moved to ViewModel (MVVM pattern)
         viewModel.uploadNote(title, subject, semester, branch, college, filePath, thumbnailPath);
     }
 }
