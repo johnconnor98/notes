@@ -1,5 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- Black and White Theme -->
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="gray_50">#FAFAFA</color>
+    <color name="gray_100">#F5F5F5</color>
+    <color name="gray_200">#EEEEEE</color>
+    <color name="gray_300">#E0E0E0</color>
+    <color name="gray_400">#BDBDBD</color>
+    <color name="gray_500">#9E9E9E</color>
+    <color name="gray_600">#757575</color>
+    <color name="gray_700">#616161</color>
+    <color name="gray_800">#424242</color>
+    <color name="gray_900">#212121</color>
+    
+    <!-- Primary Colors -->
+    <color name="primary_black">#000000</color>
+    <color name="primary_white">#FFFFFF</color>
+    <color name="accent_gray">#424242</color>
+    
+    <!-- Background Colors -->
+    <color name="background_light">#FFFFFF</color>
+    <color name="background_dark">#000000</color>
+    <color name="surface_light">#FAFAFA</color>
+    <color name="surface_dark">#1A1A1A</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#000000</color>
+    <color name="text_primary_dark">#FFFFFF</color>
+    <color name="text_secondary">#616161</color>
+    <color name="text_secondary_dark">#BDBDBD</color>
+    
+    <!-- Button Colors -->
+    <color name="button_primary">#000000</color>
+    <color name="button_primary_text">#FFFFFF</color>
+    <color name="button_secondary">#FFFFFF</color>
+    <color name="button_secondary_text">#000000</color>
+    <color name="button_outline">#000000</color>
+    
+    <!-- Ripple Colors -->
+    <color name="ripple_light">#1F000000</color>
+    <color name="ripple_dark">#1FFFFFFF</color>
+    
+    <!-- Card Colors -->
+    <color name="card_background">#FFFFFF</color>
+    <color name="card_elevation">#E0E0E0</color>
 </resources>

@@ -1,9 +1,10 @@
 package com.return0.notes.domain.model;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SearchFilters {
+public class SearchFilters implements Serializable {
     private final Map<String, String> filters;
 
     public SearchFilters() {

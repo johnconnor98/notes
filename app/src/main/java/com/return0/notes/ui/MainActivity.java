@@ -24,6 +24,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.return0.notes.R;
@@ -113,8 +114,45 @@ public class MainActivity extends AppCompatActivity {
         MaterialButton btnUpload = findViewById(R.id.btnUpload);
         btnUpload.setOnClickListener(v -> showUploadDialog());
 
+        // Floating Action Menu
+        ExtendedFloatingActionButton fabMenu = findViewById(R.id.fabMenu);
         FloatingActionButton fabRefresh = findViewById(R.id.fabRefresh);
-        fabRefresh.setOnClickListener(v -> viewModel.loadNotes());
+        FloatingActionButton fabSearch = findViewById(R.id.fabSearch);
+        
+        boolean[] isMenuExpanded = {false};
+        
+        fabMenu.setOnClickListener(v -> {
+            isMenuExpanded[0] = !isMenuExpanded[0];
+            if (isMenuExpanded[0]) {
+                // Expand menu
+                fabRefresh.show();
+                fabSearch.show();
+                fabMenu.shrink();
+            } else {
+                // Collapse menu
+                fabRefresh.hide();
+                fabSearch.hide();
+                fabMenu.extend();
+            }
+        });
+        
+        fabRefresh.setOnClickListener(v -> {
+            viewModel.loadNotes();
+            // Collapse menu after action
+            fabRefresh.hide();
+            fabSearch.hide();
+            fabMenu.extend();
+            isMenuExpanded[0] = false;
+        });
+        
+        fabSearch.setOnClickListener(v -> {
+            showSearchDialog();
+            // Collapse menu after action
+            fabRefresh.hide();
+            fabSearch.hide();
+            fabMenu.extend();
+            isMenuExpanded[0] = false;
+        });
     }
 
     private void observeViewModel() {
@@ -256,7 +294,10 @@ public class MainActivity extends AppCompatActivity {
             filters.setFilter("branch", etBranch.getText().toString());
             filters.setFilter("college", etCollege.getText().toString());
 
-            viewModel.searchNotes(filters);
+            // Navigate to SearchResultsActivity
+            Intent intent = new Intent(MainActivity.this, SearchResultsActivity.class);
+            intent.putExtra("searchFilters", filters);
+            startActivity(intent);
             dialog.dismiss();
         });
     }

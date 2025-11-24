@@ -95,16 +95,23 @@
         android:id="@+id/btnSelectFile"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Select File"
-        android:layout_marginBottom="8dp" />
+        android:text="📄 Select File"
+        android:layout_marginBottom="8dp"
+        style="@style/Widget.Notes.Button.Primary"
+        app:icon="@android:drawable/ic_menu_gallery"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnSelectThumbnail"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Select Thumbnail (Optional)"
-        style="@style/Widget.Material3.Button.OutlinedButton"
-        android:layout_marginBottom="16dp" />
+        android:text="🖼 Select Thumbnail (Optional)"
+        style="@style/Widget.Notes.Button.Secondary"
+        android:layout_marginBottom="16dp"
+        app:icon="@android:drawable/ic_menu_camera"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -117,13 +124,15 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Cancel"
-            style="@style/Widget.Material3.Button.TextButton" />
+            android:layout_marginEnd="8dp"
+            style="@style/Widget.Notes.Button.Text" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnUpload"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Upload" />
+            android:text="📤 Upload"
+            style="@style/Widget.Notes.Button.Primary" />
 
     </LinearLayout>
 

@@ -19,9 +19,14 @@ import java.util.Locale;
 
 public class NoteAdapter extends ListAdapter<Note, NoteAdapter.NoteViewHolder> {
     private OnDownloadClickListener downloadListener;
+    private OnItemClickListener itemClickListener;
 
     public interface OnDownloadClickListener {
         void onDownloadClick(Note note);
+    }
+
+    public interface OnItemClickListener {
+        void onItemClick(Note note);
     }
 
     public NoteAdapter() {
@@ -30,6 +35,10 @@ public class NoteAdapter extends ListAdapter<Note, NoteAdapter.NoteViewHolder> {
 
     public void setOnDownloadClickListener(OnDownloadClickListener listener) {
         this.downloadListener = listener;
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.itemClickListener = listener;
     }
 
     @NonNull
@@ -111,6 +120,13 @@ public class NoteAdapter extends ListAdapter<Note, NoteAdapter.NoteViewHolder> {
             btnDownload.setOnClickListener(v -> {
                 if (downloadListener != null) {
                     downloadListener.onDownloadClick(note);
+                }
+            });
+            
+            // Make entire item clickable
+            itemView.setOnClickListener(v -> {
+                if (itemClickListener != null) {
+                    itemClickListener.onItemClick(note);
                 }
             });
         }
