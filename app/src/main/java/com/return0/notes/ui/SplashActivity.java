@@ -1,9 +1,14 @@
 package com.return0.notes.ui;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -31,9 +36,46 @@ public class SplashActivity extends AppCompatActivity {
             return insets;
         });
 
+        animateLogo();
         setupViewModel();
         loadData();
         startMinimumSplashTimer();
+    }
+
+    private void animateLogo() {
+        View logoContainer = findViewById(R.id.logoContainer);
+        View logo = findViewById(R.id.ivLogo);
+        View appName = findViewById(R.id.tvAppName);
+        View tagline = findViewById(R.id.tvTagline);
+
+        // Logo animation - scale and fade in
+        ObjectAnimator logoScaleX = ObjectAnimator.ofFloat(logo, "scaleX", 0.5f, 1.0f);
+        ObjectAnimator logoScaleY = ObjectAnimator.ofFloat(logo, "scaleY", 0.5f, 1.0f);
+        ObjectAnimator logoAlpha = ObjectAnimator.ofFloat(logo, "alpha", 0f, 1f);
+        ObjectAnimator logoRotation = ObjectAnimator.ofFloat(logo, "rotation", -10f, 0f);
+
+        AnimatorSet logoAnimator = new AnimatorSet();
+        logoAnimator.playTogether(logoScaleX, logoScaleY, logoAlpha, logoRotation);
+        logoAnimator.setDuration(1000);
+        logoAnimator.setInterpolator(new OvershootInterpolator(1.2f));
+        logoAnimator.start();
+
+        // Container fade in
+        ObjectAnimator containerAlpha = ObjectAnimator.ofFloat(logoContainer, "alpha", 0f, 1f);
+        containerAlpha.setDuration(800);
+        containerAlpha.start();
+
+        // App name fade in (delayed)
+        ObjectAnimator appNameAlpha = ObjectAnimator.ofFloat(appName, "alpha", 0f, 1f);
+        appNameAlpha.setStartDelay(600);
+        appNameAlpha.setDuration(600);
+        appNameAlpha.start();
+
+        // Tagline fade in (delayed)
+        ObjectAnimator taglineAlpha = ObjectAnimator.ofFloat(tagline, "alpha", 0f, 1f);
+        taglineAlpha.setStartDelay(900);
+        taglineAlpha.setDuration(600);
+        taglineAlpha.start();
     }
 
     private void setupViewModel() {

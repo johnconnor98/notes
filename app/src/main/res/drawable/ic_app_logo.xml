@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    
+    <!-- Background Circle -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M100,100m-90,0a90,90 0,1 1,180 0a90,90 0,1 1,-180 0"/>
+    
+    <!-- Document/Note Icon -->
+    <group
+        android:translateX="100"
+        android:translateY="100"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
+        
+        <!-- Main Document -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-50,-60 L50,-60 L50,60 L-50,60 Z"/>
+        
+        <!-- Folded Corner -->
+        <path
+            android:fillColor="#E0E0E0"
+            android:pathData="M30,-60 L50,-40 L50,-60 Z"/>
+        
+        <!-- Horizontal Lines (Text) -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M-40,-30 L40,-30 L40,-25 L-40,-25 Z"/>
+        <path
+            android:fillColor="#000000"
+            android:pathData="M-40,-10 L40,-10 L40,-5 L-40,-5 Z"/>
+        <path
+            android:fillColor="#000000"
+            android:pathData="M-40,10 L20,10 L20,15 L-40,15 Z"/>
+        
+        <!-- Share/Arrow Icon -->
+        <path
+            android:fillColor="#000000"
+            android:pathData="M60,0 L75,0 L70,-5 L80,-5 L80,5 L70,5 L75,0 L60,0 Z"/>
+    </group>
+    
+    <!-- Decorative Elements -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.1"
+        android:pathData="M100,20 Q120,30 140,20 T180,20"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.1"
+        android:pathData="M20,100 Q30,120 20,140 T20,180"/>
+</vector>
+
