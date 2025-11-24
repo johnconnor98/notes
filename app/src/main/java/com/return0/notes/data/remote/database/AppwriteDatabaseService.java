@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 public class AppwriteDatabaseService implements DatabaseService {
     private static final String TAG = "AppwriteDatabaseService";
     
-    private static final String ENDPOINT = "https://fra.cloud.appwrite.io/v1";
+    private static final String ENDPOINT = "https://cloud.appwrite.io/v1";
     private static final String PROJECT_ID = "6922970a001ab5faef56";
     private static final String DATABASE_ID = "69231061001de8342953";
     private static final String COLLECTION_ID = "notes_list";
@@ -61,107 +61,47 @@ public class AppwriteDatabaseService implements DatabaseService {
                 Log.d(TAG, "Base URL: " + baseUrl);
                 
                 // Build queries array - Appwrite REST API format
-                // Format: equal("field","value") - this is the exact format Appwrite expects
-                // Based on Appwrite documentation, Query.equal() returns strings in this format
                 List<String> queryStrings = new ArrayList<>();
                 Log.d(TAG, "Generating queries in Appwrite format...");
                 
-                // Build query strings manually in the format: equal("field","value")
-                // This matches what Query.equal() would return
                 if (subject != null && !subject.isEmpty()) {
-                    // Format: equal("subject","value") - proper JSON escaping for the value
                     String query = "equal(\"subject\",\"" + escapeJsonString(subject) + "\")";
                     queryStrings.add(query);
                     Log.d(TAG, "  ✓ Subject query: " + query);
-                    Log.d(TAG, "    Query length: " + query.length() + " chars");
                 }
                 if (semester != null && !semester.isEmpty()) {
                     String query = "equal(\"semester\",\"" + escapeJsonString(semester) + "\")";
                     queryStrings.add(query);
                     Log.d(TAG, "  ✓ Semester query: " + query);
-                    Log.d(TAG, "    Query length: " + query.length() + " chars");
                 }
                 if (branch != null && !branch.isEmpty()) {
                     String query = "equal(\"branch\",\"" + escapeJsonString(branch) + "\")";
                     queryStrings.add(query);
                     Log.d(TAG, "  ✓ Branch query: " + query);
-                    Log.d(TAG, "    Query length: " + query.length() + " chars");
                 }
                 if (college != null && !college.isEmpty()) {
                     String query = "equal(\"college\",\"" + escapeJsonString(college) + "\")";
                     queryStrings.add(query);
                     Log.d(TAG, "  ✓ College query: " + query);
-                    Log.d(TAG, "    Query length: " + query.length() + " chars");
                 }
-                Log.d(TAG, "Total queries generated: " + queryStrings.size());
-                
-                // Build JSON array of query strings (as Appwrite SDK expects)
-                // Format: ["equal(\"field\",\"value\")", "equal(\"field2\",\"value2\")"]
-                Log.d(TAG, "Building JSON array from query strings...");
-                JsonArray queriesArray = new JsonArray();
-                for (int i = 0; i < queryStrings.size(); i++) {
-                    String query = queryStrings.get(i);
-                    queriesArray.add(query);
-                    Log.d(TAG, "  Query[" + i + "]: " + query);
-                }
-                String queriesJson = gson.toJson(queriesArray);
-                Log.d(TAG, "Queries JSON array: " + queriesJson);
-                Log.d(TAG, "Queries JSON length: " + queriesJson.length() + " chars");
                 
                 // Build URL with queries parameter
-                // Appwrite REST API expects queries as a JSON array string
-                // The challenge: URL encoding breaks JSON structure
-                // Solution: Use java.net.URI to properly encode, or pass as-is and let HttpURLConnection handle it
-                String finalUrl;
-                try {
-                    Log.d(TAG, "Building final URL...");
-                    // Build query string
-                    StringBuilder queryBuilder = new StringBuilder("project=" + PROJECT_ID);
-                    Log.d(TAG, "  Base query string: " + queryBuilder.toString());
-                    
-                    if (!queryStrings.isEmpty()) {
-                        // Try: Pass the JSON array as-is without encoding
-                        // HttpURLConnection should handle special characters in query parameters
-                        // Or use URI encoding which might preserve structure better
-                        queryBuilder.append("&queries=").append(queriesJson);
-                        Log.d(TAG, "  Queries JSON (unencoded): " + queriesJson);
-                        Log.d(TAG, "  NOTE: Passing queries without URL encoding - HttpURLConnection will handle it");
-                    } else {
-                        Log.d(TAG, "  No queries to add (empty query list)");
+                String finalUrl = baseUrl + "?project=" + PROJECT_ID;
+                
+                if (!queryStrings.isEmpty()) {
+                    JsonArray queriesArray = new JsonArray();
+                    for (String q : queryStrings) {
+                        queriesArray.add(q);
                     }
+                    String queriesJson = gson.toJson(queriesArray);
                     
-                    String queryString = queryBuilder.toString();
-                    Log.d(TAG, "  Full query string: " + queryString);
-                    
-                    // Use URI to properly construct the URL
-                    // This will encode special characters but might preserve JSON structure better
-                    java.net.URI uri = new java.net.URI(
-                        baseUrl.split("://")[0], // scheme (https)
-                        baseUrl.split("://")[1].split("/")[0], // authority (host)
-                        "/" + baseUrl.substring(baseUrl.indexOf("/", 8)), // path
-                        queryString, // query
-                        null // fragment
-                    );
-                    finalUrl = uri.toString();
-                    Log.d(TAG, "  Final URL (via URI): " + finalUrl);
-                    
-                    // Alternative: Construct manually and let HttpURLConnection encode
-                    if (finalUrl.contains("%")) {
-                        Log.d(TAG, "  NOTE: URI encoded the URL");
-                    } else {
-                        Log.d(TAG, "  NOTE: URL not encoded by URI constructor");
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "ERROR: Failed to build URL with URI", e);
-                    Log.e(TAG, "Exception type: " + e.getClass().getName());
-                    Log.e(TAG, "Exception message: " + e.getMessage());
-                    // Fallback: Manual construction without encoding
-                    Log.d(TAG, "Using fallback URL construction (no encoding)...");
-                    finalUrl = baseUrl + "?project=" + PROJECT_ID;
-                    if (!queryStrings.isEmpty()) {
-                        // Don't encode - pass JSON array as-is
-                        finalUrl += "&queries=" + queriesJson;
-                        Log.d(TAG, "  Fallback URL (unencoded queries): " + finalUrl);
+                    // Important: URLEncoder.encode the JSON string for query parameter
+                    try {
+                        String encodedQueries = URLEncoder.encode(queriesJson, "UTF-8");
+                        finalUrl += "&queries=" + encodedQueries;
+                        Log.d(TAG, "  Added encoded queries: " + encodedQueries);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to encode queries", e);
                     }
                 }
                 
@@ -177,9 +117,6 @@ public class AppwriteDatabaseService implements DatabaseService {
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     Log.d(TAG, "✓ Request successful (200 OK)");
                     String jsonResponse = readResponse(connection);
-                    Log.d(TAG, "Response body length: " + jsonResponse.length() + " chars");
-                    Log.d(TAG, "Raw JSON response (first 500 chars): " + 
-                        (jsonResponse.length() > 500 ? jsonResponse.substring(0, 500) + "..." : jsonResponse));
                     
                     List<NoteDto> notes = parseNotesResponse(jsonResponse);
                     Log.d(TAG, "✓ Parsed " + notes.size() + " documents successfully");
@@ -191,10 +128,6 @@ public class AppwriteDatabaseService implements DatabaseService {
                     Log.e(TAG, "✗ Request failed with code: " + responseCode);
                     String error = readErrorResponse(connection, responseCode);
                     Log.e(TAG, "Error response body: " + error);
-                    Log.e(TAG, "Database error: " + error);
-                    
-                    // Log the exact URL that failed
-                    Log.e(TAG, "Failed URL: " + finalUrl);
                     
                     new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
                         callback.onError(error);
@@ -262,22 +195,18 @@ public class AppwriteDatabaseService implements DatabaseService {
                 String dataJson = gson.toJson(data);
                 Log.d(TAG, "Document data: " + dataJson);
                 
-                String formData;
-                try {
-                    formData = "documentId=" + URLEncoder.encode(documentId, "UTF-8") + 
-                              "&data=" + URLEncoder.encode(dataJson, "UTF-8");
-                } catch (java.io.UnsupportedEncodingException e) {
-                    Log.e(TAG, "Error encoding form data", e);
-                    // Fallback: use unencoded data (may cause issues with special chars)
-                    formData = "documentId=" + documentId + "&data=" + dataJson;
-                }
+                JsonObject payload = new JsonObject();
+                payload.addProperty("documentId", documentId);
+                payload.add("data", data);
+                
+                String jsonPayload = gson.toJson(payload);
                 
                 HttpURLConnection connection = createConnection(url, "POST");
-                connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                connection.setRequestProperty("Content-Type", "application/json");
                 connection.setDoOutput(true);
                 
                 OutputStream outputStream = connection.getOutputStream();
-                outputStream.write(formData.getBytes("UTF-8"));
+                outputStream.write(jsonPayload.getBytes("UTF-8"));
                 outputStream.flush();
                 outputStream.close();
                 
@@ -311,52 +240,6 @@ public class AppwriteDatabaseService implements DatabaseService {
         });
     }
     
-    // Helper methods - following Single Responsibility Principle
-    
-    private String buildSearchUrl(String subject, String semester, String branch, String college) {
-        String url = ENDPOINT + "/databases/" + DATABASE_ID + "/collections/" + COLLECTION_ID + "/documents";
-        boolean hasQuery = false;
-        
-        List<String> queryStrings = new ArrayList<>();
-        if (subject != null && !subject.isEmpty()) {
-            queryStrings.add("search(\"subject\",\"" + escapeJsonString(subject) + "\")");
-        }
-        if (semester != null && !semester.isEmpty()) {
-            queryStrings.add("search(\"semester\",\"" + escapeJsonString(semester) + "\")");
-        }
-        if (branch != null && !branch.isEmpty()) {
-            queryStrings.add("search(\"branch\",\"" + escapeJsonString(branch) + "\")");
-        }
-        if (college != null && !college.isEmpty()) {
-            queryStrings.add("search(\"college\",\"" + escapeJsonString(college) + "\")");
-        }
-        
-        if (!queryStrings.isEmpty()) {
-            // Appwrite expects queries as a JSON array of strings
-            // Format: ["search(\"field\",\"value\")", "search(\"field2\",\"value2\")"]
-            // Use Gson to properly serialize the array
-            String queriesJson = gson.toJson(queryStrings);
-            
-            Log.d(TAG, "Query JSON before encoding: " + queriesJson);
-            
-            try {
-                // URL encode the entire JSON array
-                String encodedQueries = URLEncoder.encode(queriesJson, "UTF-8");
-                url += "?queries=" + encodedQueries;
-                hasQuery = true;
-                Log.d(TAG, "Encoded queries: " + encodedQueries);
-            } catch (java.io.UnsupportedEncodingException e) {
-                Log.e(TAG, "Error encoding queries", e);
-                // Fallback: use queries without encoding (may cause issues with special chars)
-                url += "?queries=" + queriesJson;
-                hasQuery = true;
-            }
-        }
-        
-        url += (hasQuery ? "&" : "?") + "project=" + PROJECT_ID;
-        return url;
-    }
-    
     private HttpURLConnection createConnection(String urlString, String method) throws Exception {
         URL url = new URL(urlString);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -364,6 +247,7 @@ public class AppwriteDatabaseService implements DatabaseService {
         connection.setConnectTimeout(30000);
         connection.setReadTimeout(30000);
         connection.setRequestProperty("X-Appwrite-Project", PROJECT_ID);
+        connection.setRequestProperty("X-Appwrite-Response-Format", "1.4.0");
         return connection;
     }
     
@@ -470,4 +354,3 @@ public class AppwriteDatabaseService implements DatabaseService {
                    .replace("\t", "\\t");
     }
 }
-
