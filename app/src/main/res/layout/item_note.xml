@@ -8,6 +8,7 @@
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground"
     style="@style/Widget.Notes.Card"
+    app:cardElevation="0dp"
     app:strokeWidth="1dp"
     app:strokeColor="@color/gray_200">
 
