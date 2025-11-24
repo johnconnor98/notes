@@ -40,23 +40,10 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        requestPermissions();
         setupViewModel();
         setupRecyclerView();
-        setupFilePicker();
         setupClickListeners();
         observeViewModel();
-    }
-
-    private void requestPermissions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{
-                            Manifest.permission.READ_EXTERNAL_STORAGE,
-                            Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    }, 1);
-        }
     }
 
     private void setupViewModel() {
@@ -70,10 +57,6 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         adapter.setOnDownloadClickListener(note -> viewModel.downloadNote(note));
-    }
-
-    private void setupFilePicker() {
-        // File pickers moved to UploadActivity
     }
 
     private void setupClickListeners() {
