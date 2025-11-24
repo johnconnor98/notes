@@ -108,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void observeViewModel() {
+        // Notes are already loaded in SplashActivity, just observe for updates
         viewModel.getNotes().observe(this, notes -> {
             if (notes != null) {
                 adapter.submitList(notes);
