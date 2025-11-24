@@ -20,6 +20,7 @@ import com.return0.notes.R;
 import com.return0.notes.domain.model.Note;
 import com.return0.notes.ui.adapter.NoteAdapter;
 import com.return0.notes.ui.viewmodel.NotesViewModel;
+import com.return0.notes.ui.viewmodel.NotesViewModelFactory;
 
 import java.util.List;
 

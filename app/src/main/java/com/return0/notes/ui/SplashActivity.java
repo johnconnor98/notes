@@ -17,6 +17,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.lifecycle.ViewModelProvider;
 import com.return0.notes.R;
 import com.return0.notes.ui.viewmodel.NotesViewModel;
+import com.return0.notes.ui.viewmodel.NotesViewModelFactory;
 
 public class SplashActivity extends AppCompatActivity {
     private static final int SPLASH_DURATION = 2000; // 2 seconds minimum
