@@ -53,10 +53,7 @@
                 android:layout_height="wrap_content"
                 android:text="🔍 Search Notes"
                 android:layout_marginBottom="12dp"
-                style="@style/Widget.Notes.Button.Primary"
-                app:icon="@android:drawable/ic_menu_search"
-                app:iconGravity="textStart"
-                app:iconPadding="8dp" />
+                style="@style/Widget.Notes.Button.Primary" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnUpload"
@@ -64,10 +61,7 @@
                 android:layout_height="wrap_content"
                 android:text="📤 Upload Note"
                 android:layout_marginBottom="24dp"
-                style="@style/Widget.Notes.Button.Secondary"
-                app:icon="@android:drawable/ic_menu_upload"
-                app:iconGravity="textStart"
-                app:iconPadding="8dp" />
+                style="@style/Widget.Notes.Button.Secondary" />
 
             <TextView
                 android:layout_width="match_parent"

@@ -91,10 +91,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="⬇ Download"
-                style="@style/Widget.Notes.Button.Secondary"
-                app:icon="@android:drawable/stat_sys_download"
-                app:iconGravity="textStart"
-                app:iconPadding="8dp" />
+                style="@style/Widget.Notes.Button.Secondary" />
 
         </LinearLayout>
 
