@@ -29,6 +29,14 @@
             android:name=".ui.SearchResultsActivity"
             android:exported="false"
             android:parentActivityName=".ui.MainActivity" />
+        <activity
+            android:name=".ui.SearchActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.MainActivity" />
+        <activity
+            android:name=".ui.UploadActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.MainActivity" />
         
         <provider
             android:name="androidx.core.content.FileProvider"
