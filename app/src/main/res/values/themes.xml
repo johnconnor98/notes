@@ -15,6 +15,17 @@
         <item name="android:windowLightStatusBar">false</item>
     </style>
     
+    <!-- Splash Screen Theme - prevents double splash screen -->
+    <style name="Theme.Notes.Splash" parent="Theme.Notes">
+        <item name="android:windowBackground">@color/black</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:navigationBarColor">@color/black</item>
+    </style>
+    
     <!-- Enhanced Button Styles -->
     <style name="Widget.Notes.Button.Primary" parent="Widget.Material3.Button">
         <item name="backgroundTint">@color/black</item>

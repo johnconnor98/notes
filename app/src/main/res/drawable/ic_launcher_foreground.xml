@@ -5,12 +5,12 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Document/Note Icon (centered and scaled for icon) -->
+    <!-- Document/Note Icon (centered and scaled for icon - smaller size) -->
     <group
         android:translateX="54"
         android:translateY="54"
-        android:scaleX="0.7"
-        android:scaleY="0.7">
+        android:scaleX="0.5"
+        android:scaleY="0.5">
         
         <!-- Main Document -->
         <path
