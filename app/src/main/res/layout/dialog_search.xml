@@ -79,7 +79,7 @@
             android:id="@+id/btnSearch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🔍 Search"
+            android:text="Search"
             style="@style/Widget.Notes.Button.Primary" />
 
     </LinearLayout>
