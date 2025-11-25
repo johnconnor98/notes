@@ -21,6 +21,7 @@ import com.return0.notes.data.remote.ApiClient;
 import com.return0.notes.data.remote.ApiService;
 import com.return0.notes.data.remote.dto.PreviewResponse;
 import com.return0.notes.domain.model.Note;
+import com.return0.notes.ui.adapter.PreviewImageAdapter;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
