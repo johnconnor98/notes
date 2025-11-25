@@ -250,6 +250,7 @@ public class NotesRepositoryImpl implements NotesRepository {
             @Override
             public void onSuccess(NoteDto noteDto) {
                 String filePath = noteDto.getFilePath();
+                Log.d(TAG, "Retrieved filePath from database: " + (filePath != null ? filePath : "null"));
                 
                 // Generate filename if not provided
                 String finalFilename = filename;
@@ -268,9 +269,11 @@ public class NotesRepositoryImpl implements NotesRepository {
                 if (filePath != null && !filePath.isEmpty()) {
                     // Download from StorageService
                     File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    Log.d(TAG, "Starting download from storage path: " + filePath);
                     storageService.downloadFile(filePath, finalFilename, downloadsDir, new StorageService.DownloadCallback() {
                         @Override
                         public void onSuccess(String localFilePath) {
+                            Log.d(TAG, "Download successful: " + localFilePath);
                             callback.onSuccess(localFilePath);
                         }
 
@@ -279,16 +282,20 @@ public class NotesRepositoryImpl implements NotesRepository {
 
                         @Override
                         public void onError(String error) {
+                            Log.e(TAG, "Storage download error: " + error);
                             callback.onError("Download failed: " + error);
                         }
                     });
                 } else {
-                    callback.onError("File path not found in document");
+                    Log.e(TAG, "File path is null or empty in document. Note ID: " + noteId);
+                    Log.e(TAG, "NoteDto data - Title: " + noteDto.getTitle() + ", ID: " + noteDto.getId());
+                    callback.onError("File path not found in document. Please ensure the note was uploaded correctly.");
                 }
             }
 
             @Override
             public void onError(String error) {
+                Log.e(TAG, "Failed to get document from database: " + error);
                 callback.onError("Failed to get document: " + error);
             }
         });
@@ -296,26 +303,12 @@ public class NotesRepositoryImpl implements NotesRepository {
 
     @Override
     public void downloadNote(Note note, DownloadCallback callback) {
-        String storagePath = extractStoragePathFromNote(note);
-        if (storagePath != null && !storagePath.isEmpty()) {
-            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            storageService.downloadFile(storagePath, note.getFilename(), downloadsDir, new StorageService.DownloadCallback() {
-                @Override
-                public void onSuccess(String filePath) {
-                    callback.onSuccess(filePath);
-                }
-
-                @Override
-                public void onProgress(double progress) {}
-
-                @Override
-                public void onError(String error) {
-                    callback.onError("Storage download failed: " + error);
-                }
-            });
-        } else {
-            downloadNote(note.getId(), note.getFilename(), callback);
-        }
+        Log.d(TAG, "Downloading note - Note ID: " + note.getId());
+        Log.d(TAG, "Note filePath: " + (note.getFilePath() != null ? note.getFilePath() : "null"));
+        
+        // Always fetch latest data from database to ensure we have the filePath
+        // This is more reliable than relying on the Note object which might be stale
+        downloadNote(note.getId(), note.getFilename(), callback);
     }
 
     private String extractStoragePathFromNote(Note note) {

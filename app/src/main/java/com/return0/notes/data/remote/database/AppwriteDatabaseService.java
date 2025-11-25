@@ -293,7 +293,8 @@ public class AppwriteDatabaseService implements DatabaseService {
         data.addProperty("semester", semester != null ? semester : "");
         data.addProperty("branch", branch != null ? branch : "");
         data.addProperty("college", college != null ? college : "");
-        data.addProperty("filePath", filePath != null ? filePath : "");
+        // Use "file_path" to match NoteDto SerializedName annotation
+        data.addProperty("file_path", filePath != null ? filePath : "");
         data.addProperty("thumbnailPath", thumbnailPath != null ? thumbnailPath : "");
         return data;
     }
@@ -327,7 +328,10 @@ public class AppwriteDatabaseService implements DatabaseService {
         noteDto.setBranch(doc.has("branch") ? doc.get("branch").getAsString() : "");
         noteDto.setCollege(doc.has("college") ? doc.get("college").getAsString() : "");
         
-        if (doc.has("filePath") && !doc.get("filePath").isJsonNull()) {
+        // Check both "filePath" and "file_path" for backward compatibility
+        if (doc.has("file_path") && !doc.get("file_path").isJsonNull()) {
+            noteDto.setFilePath(doc.get("file_path").getAsString());
+        } else if (doc.has("filePath") && !doc.get("filePath").isJsonNull()) {
             noteDto.setFilePath(doc.get("filePath").getAsString());
         } else {
             noteDto.setFilePath("");
