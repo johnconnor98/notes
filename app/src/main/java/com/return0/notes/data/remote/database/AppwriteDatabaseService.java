@@ -226,9 +226,20 @@ public class AppwriteDatabaseService implements DatabaseService {
                 } else {
                     String error = readErrorResponse(connection, responseCode);
                     Log.e(TAG, "Failed to create document: " + error);
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        callback.onError(error);
-                    });
+                    
+                    // Check if error is about missing attributes
+                    if (error.contains("Unknown attribute") && error.contains("file_path")) {
+                        String detailedError = "Failed to create document: " + error + 
+                            "\n\nPlease add 'file_path' and 'thumbnailPath' attributes to your Appwrite collection." +
+                            "\nSee APPWRITE_SETUP.md for instructions.";
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            callback.onError(detailedError);
+                        });
+                    } else {
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                            callback.onError("HTTP error code: " + responseCode + " - " + error);
+                        });
+                    }
                 }
                 connection.disconnect();
             } catch (Exception e) {
@@ -293,9 +304,26 @@ public class AppwriteDatabaseService implements DatabaseService {
         data.addProperty("semester", semester != null ? semester : "");
         data.addProperty("branch", branch != null ? branch : "");
         data.addProperty("college", college != null ? college : "");
-        // Use "file_path" to match NoteDto SerializedName annotation
-        data.addProperty("file_path", filePath != null ? filePath : "");
-        data.addProperty("thumbnailPath", thumbnailPath != null ? thumbnailPath : "");
+        
+        // Only add file_path and thumbnailPath if they are not empty
+        // This allows the document to be created even if attributes don't exist yet
+        // User needs to add these attributes in Appwrite Console
+        if (filePath != null && !filePath.isEmpty()) {
+            try {
+                data.addProperty("file_path", filePath);
+            } catch (Exception e) {
+                Log.w(TAG, "Could not add file_path attribute - may not exist in collection schema");
+            }
+        }
+        
+        if (thumbnailPath != null && !thumbnailPath.isEmpty()) {
+            try {
+                data.addProperty("thumbnailPath", thumbnailPath);
+            } catch (Exception e) {
+                Log.w(TAG, "Could not add thumbnailPath attribute - may not exist in collection schema");
+            }
+        }
+        
         return data;
     }
     
