@@ -105,16 +105,18 @@ public class NoteAdapter extends ListAdapter<Note, NoteAdapter.NoteViewHolder> {
             long sizeKB = note.getFileSize() / 1024;
             tvSize.setText(sizeKB + " KB");
             
+            // Always show PDF icon as placeholder/default
+            // If thumbnail exists, load it; otherwise show PDF icon
             if (note.getThumbnail() != null && !note.getThumbnail().isEmpty()) {
                 String thumbnailUrl = Constants.BASE_URL + "api/thumbnails/" + note.getThumbnail();
                 Glide.with(itemView.getContext())
                         .load(thumbnailUrl)
-                        .placeholder(R.drawable.ic_launcher_background)
-                        .error(R.drawable.ic_launcher_background)
+                        .placeholder(R.drawable.ic_pdf)
+                        .error(R.drawable.ic_pdf)
                         .centerCrop()
                         .into(ivThumbnail);
             } else {
-                ivThumbnail.setImageResource(R.drawable.ic_launcher_background);
+                ivThumbnail.setImageResource(R.drawable.ic_pdf);
             }
             
             btnDownload.setOnClickListener(v -> {
