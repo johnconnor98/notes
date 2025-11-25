@@ -124,8 +124,8 @@ public class SearchResultsActivity extends AppCompatActivity {
 
         viewModel.getDownloadPath().observe(this, path -> {
             if (path != null && !path.isEmpty()) {
-                // File downloaded successfully - open it
-                DocumentOpener.openDocument(this, path);
+                // File downloaded successfully - open it in-app
+                openPdfInApp(path);
             }
         });
     }
@@ -151,6 +151,12 @@ public class SearchResultsActivity extends AppCompatActivity {
         
         // For now, allow all documents
         return true;
+    }
+
+    private void openPdfInApp(String filePath) {
+        Intent intent = new Intent(SearchResultsActivity.this, PdfViewerActivity.class);
+        intent.putExtra("pdf_path", filePath);
+        startActivity(intent);
     }
 }
 

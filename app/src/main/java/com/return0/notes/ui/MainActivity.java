@@ -21,6 +21,7 @@ import com.return0.notes.domain.model.Note;
 import com.return0.notes.ui.adapter.NoteAdapter;
 import com.return0.notes.ui.viewmodel.NotesViewModel;
 import com.return0.notes.ui.viewmodel.NotesViewModelFactory;
+import com.return0.notes.util.DocumentOpener;
 
 import java.util.List;
 
@@ -59,6 +60,12 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setAdapter(adapter);
 
         adapter.setOnDownloadClickListener(note -> viewModel.downloadNote(note));
+        
+        // Make cards clickable to open PDFs
+        adapter.setOnItemClickListener(note -> {
+            // Download and open the PDF in-app
+            viewModel.downloadNote(note);
+        });
     }
 
     private void setupClickListeners() {
@@ -137,7 +144,8 @@ public class MainActivity extends AppCompatActivity {
 
         viewModel.getDownloadPath().observe(this, path -> {
             if (path != null && !path.isEmpty()) {
-                // File downloaded successfully
+                // File downloaded successfully - open it in-app
+                openPdfInApp(path);
             }
         });
     }
@@ -151,6 +159,12 @@ public class MainActivity extends AppCompatActivity {
     private void showSearchDialog() {
         // Navigate to SearchActivity instead of showing dialog
         Intent intent = new Intent(MainActivity.this, SearchActivity.class);
+        startActivity(intent);
+    }
+
+    private void openPdfInApp(String filePath) {
+        Intent intent = new Intent(MainActivity.this, PdfViewerActivity.class);
+        intent.putExtra("pdf_path", filePath);
         startActivity(intent);
     }
 }

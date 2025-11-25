@@ -40,6 +40,11 @@
             android:name=".ui.UploadActivity"
             android:exported="false"
             android:parentActivityName=".ui.MainActivity" />
+        <activity
+            android:name=".ui.PdfViewerActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.MainActivity"
+            android:configChanges="orientation|screenSize" />
         
         <provider
             android:name="androidx.core.content.FileProvider"
