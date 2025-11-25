@@ -59,12 +59,15 @@ public class MainActivity extends AppCompatActivity {
         adapter = new NoteAdapter();
         recyclerView.setAdapter(adapter);
 
-        adapter.setOnDownloadClickListener(note -> viewModel.downloadNote(note));
+        adapter.setOnDownloadClickListener(note -> {
+            // Download button - show preview first
+            showPreview(note);
+        });
         
-        // Make cards clickable to open PDFs
+        // Make cards clickable to show preview
         adapter.setOnItemClickListener(note -> {
-            // Download and open the PDF in-app
-            viewModel.downloadNote(note);
+            // Show preview first (hybrid approach)
+            showPreview(note);
         });
     }
 
@@ -160,6 +163,28 @@ public class MainActivity extends AppCompatActivity {
         // Navigate to SearchActivity instead of showing dialog
         Intent intent = new Intent(MainActivity.this, SearchActivity.class);
         startActivity(intent);
+    }
+
+    private void showPreview(Note note) {
+        // Show preview activity first (hybrid approach)
+        Intent intent = new Intent(MainActivity.this, PreviewActivity.class);
+        intent.putExtra("note", note);
+        startActivityForResult(intent, 100);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 100 && resultCode == RESULT_OK && data != null) {
+            String action = data.getStringExtra("action");
+            if ("download_full".equals(action)) {
+                Note note = (Note) data.getSerializableExtra("note");
+                if (note != null) {
+                    // Download and show full PDF
+                    viewModel.downloadNote(note);
+                }
+            }
+        }
     }
 
     private void openPdfInApp(String filePath) {

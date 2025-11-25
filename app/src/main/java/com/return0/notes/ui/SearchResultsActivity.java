@@ -79,9 +79,9 @@ public class SearchResultsActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
         
-        // Make items clickable to open documents
+        // Make items clickable to show preview first
         adapter.setOnItemClickListener(note -> {
-            openDocumentWithRestrictions(note);
+            showPreview(note);
         });
     }
 
@@ -151,6 +151,28 @@ public class SearchResultsActivity extends AppCompatActivity {
         
         // For now, allow all documents
         return true;
+    }
+
+    private void showPreview(Note note) {
+        // Show preview activity first (hybrid approach)
+        Intent intent = new Intent(SearchResultsActivity.this, PreviewActivity.class);
+        intent.putExtra("note", note);
+        startActivityForResult(intent, 100);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 100 && resultCode == RESULT_OK && data != null) {
+            String action = data.getStringExtra("action");
+            if ("download_full".equals(action)) {
+                Note note = (Note) data.getSerializableExtra("note");
+                if (note != null) {
+                    // Download and show full PDF
+                    viewModel.downloadNote(note);
+                }
+            }
+        }
     }
 
     private void openPdfInApp(String filePath) {

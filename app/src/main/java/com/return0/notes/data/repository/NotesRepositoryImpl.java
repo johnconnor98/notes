@@ -267,10 +267,14 @@ public class NotesRepositoryImpl implements NotesRepository {
                 }
                 
                 if (filePath != null && !filePath.isEmpty()) {
-                    // Download from StorageService
-                    File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    // Download to app's private cache instead of Downloads folder
+                    // This provides better security and prevents easy file access
+                    File cacheDir = new File(context.getCacheDir(), "pdfs");
+                    if (!cacheDir.exists()) {
+                        cacheDir.mkdirs();
+                    }
                     Log.d(TAG, "Starting download from storage path: " + filePath);
-                    storageService.downloadFile(filePath, finalFilename, downloadsDir, new StorageService.DownloadCallback() {
+                    storageService.downloadFile(filePath, finalFilename, cacheDir, new StorageService.DownloadCallback() {
                         @Override
                         public void onSuccess(String localFilePath) {
                             Log.d(TAG, "Download successful: " + localFilePath);
@@ -309,6 +313,18 @@ public class NotesRepositoryImpl implements NotesRepository {
         // Always fetch latest data from database to ensure we have the filePath
         // This is more reliable than relying on the Note object which might be stale
         downloadNote(note.getId(), note.getFilename(), callback);
+    }
+    
+    /**
+     * Gets the PDF cache directory for secure storage.
+     * Files in app's private cache are not easily accessible via file manager.
+     */
+    private File getPdfCacheDir() {
+        File cacheDir = new File(context.getCacheDir(), "pdfs");
+        if (!cacheDir.exists()) {
+            cacheDir.mkdirs();
+        }
+        return cacheDir;
     }
 
     private String extractStoragePathFromNote(Note note) {

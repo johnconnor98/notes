@@ -41,6 +41,10 @@
             android:exported="false"
             android:parentActivityName=".ui.MainActivity" />
         <activity
+            android:name=".ui.PreviewActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.MainActivity" />
+        <activity
             android:name=".ui.PdfViewerActivity"
             android:exported="false"
             android:parentActivityName=".ui.MainActivity"
