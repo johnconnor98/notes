@@ -305,24 +305,23 @@ public class AppwriteDatabaseService implements DatabaseService {
         data.addProperty("branch", branch != null ? branch : "");
         data.addProperty("college", college != null ? college : "");
         
-        // Only add file_path and thumbnailPath if they are not empty
-        // This allows the document to be created even if attributes don't exist yet
-        // User needs to add these attributes in Appwrite Console
+        // TEMPORARY WORKAROUND: Store file path in title field as "title|filePath"
+        // This allows uploads to work without requiring file_path attribute
+        // TODO: Remove this workaround once file_path attribute is added to Appwrite collection
         if (filePath != null && !filePath.isEmpty()) {
-            try {
-                data.addProperty("file_path", filePath);
-            } catch (Exception e) {
-                Log.w(TAG, "Could not add file_path attribute - may not exist in collection schema");
+            // Append file path to title with a delimiter
+            String titleWithPath = title + "|FILEPATH:" + filePath;
+            if (thumbnailPath != null && !thumbnailPath.isEmpty()) {
+                titleWithPath += "|THUMB:" + thumbnailPath;
             }
+            data.addProperty("title", titleWithPath);
+            Log.d(TAG, "Storing file path in title field (temporary workaround)");
         }
         
-        if (thumbnailPath != null && !thumbnailPath.isEmpty()) {
-            try {
-                data.addProperty("thumbnailPath", thumbnailPath);
-            } catch (Exception e) {
-                Log.w(TAG, "Could not add thumbnailPath attribute - may not exist in collection schema");
-            }
-        }
+        // Note: Once file_path and thumbnailPath attributes are added to Appwrite collection,
+        // uncomment these lines and remove the workaround above:
+        // data.addProperty("file_path", filePath != null ? filePath : "");
+        // data.addProperty("thumbnailPath", thumbnailPath != null ? thumbnailPath : "");
         
         return data;
     }
@@ -350,7 +349,29 @@ public class AppwriteDatabaseService implements DatabaseService {
         NoteDto noteDto = new NoteDto();
         noteDto.setId(doc.has("$id") ? doc.get("$id").getAsString() : "");
         noteDto.setNotesid(doc.has("$id") ? doc.get("$id").getAsString() : "");
-        noteDto.setTitle(doc.has("title") ? doc.get("title").getAsString() : "");
+        
+        // Parse title and extract file path if stored in title (temporary workaround)
+        String title = doc.has("title") ? doc.get("title").getAsString() : "";
+        String filePath = "";
+        String thumbnailPath = "";
+        
+        if (title.contains("|FILEPATH:")) {
+            // Extract file path from title
+            int filePathIndex = title.indexOf("|FILEPATH:");
+            int thumbIndex = title.indexOf("|THUMB:");
+            
+            if (thumbIndex > 0) {
+                filePath = title.substring(filePathIndex + 10, thumbIndex);
+                thumbnailPath = title.substring(thumbIndex + 7);
+                title = title.substring(0, filePathIndex);
+            } else {
+                filePath = title.substring(filePathIndex + 10);
+                title = title.substring(0, filePathIndex);
+            }
+            Log.d(TAG, "Extracted file path from title: " + filePath);
+        }
+        
+        noteDto.setTitle(title);
         noteDto.setSubject(doc.has("subject") ? doc.get("subject").getAsString() : "");
         noteDto.setSemester(doc.has("semester") ? doc.get("semester").getAsString() : "");
         noteDto.setBranch(doc.has("branch") ? doc.get("branch").getAsString() : "");
@@ -361,6 +382,9 @@ public class AppwriteDatabaseService implements DatabaseService {
             noteDto.setFilePath(doc.get("file_path").getAsString());
         } else if (doc.has("filePath") && !doc.get("filePath").isJsonNull()) {
             noteDto.setFilePath(doc.get("filePath").getAsString());
+        } else if (!filePath.isEmpty()) {
+            // Use file path extracted from title (workaround)
+            noteDto.setFilePath(filePath);
         } else {
             noteDto.setFilePath("");
         }
@@ -369,6 +393,10 @@ public class AppwriteDatabaseService implements DatabaseService {
             String thumbPath = doc.get("thumbnailPath").getAsString();
             noteDto.setThumbnailPath(thumbPath);
             noteDto.setThumbnailUrl(thumbPath);
+        } else if (!thumbnailPath.isEmpty()) {
+            // Use thumbnail path extracted from title (workaround)
+            noteDto.setThumbnailPath(thumbnailPath);
+            noteDto.setThumbnailUrl(thumbnailPath);
         } else {
             noteDto.setThumbnailPath("");
             noteDto.setThumbnailUrl("");
